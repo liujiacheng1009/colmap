@@ -35,8 +35,13 @@
     #list button.active { background: #1d2836; color: var(--accent); }
     #view { position: relative; min-width: 0; }
     canvas { display: block; width: 100%; height: 100%; }
-    #status { position: absolute; left: 12px; bottom: 12px; color: var(--muted); font-size: 12px; pointer-events: none; }
+    #status { position: absolute; left: 12px; bottom: 12px; color: var(--muted); font-size: 12px; pointer-events: none; z-index: 1; }
     #error { position: absolute; inset: 0; display: none; place-items: center; padding: 24px; text-align: center; }
+    #photo { position: absolute; inset: 0; display: none; flex-direction: column; background: #0c0f14; z-index: 2; }
+    #photo.show { display: flex; }
+    #photoBar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+    #photoTitle { color: var(--text); font-size: 13px; }
+    #photoCanvas { flex: 1; min-height: 0; width: 100%; height: 100%; }
   </style>
 </head>
 <body>
@@ -44,7 +49,7 @@
     <aside>
       <header>
         <h1 id="title">South Building</h1>
-        <div class="sub" id="subtitle">稀疏点云与相机位姿</div>
+        <div class="sub" id="subtitle">点击图像查看该图的提点</div>
       </header>
       <div class="stats">
         <div class="stat"><b id="nimg">–</b><span>已注册图像</span></div>
@@ -54,11 +59,19 @@
         <label>点大小 <input id="pointSize" type="range" min="1" max="12" value="3" /></label>
         <label class="check"><span>显示相机</span><input id="showCameras" type="checkbox" checked /></label>
         <button id="reset" type="button">重置视角</button>
+        <div class="sub" id="sceneLinks"></div>
       </div>
       <div id="list"></div>
     </aside>
     <div id="view">
       <div id="error"></div>
+      <div id="photo">
+        <div id="photoBar">
+          <span id="photoTitle"></span>
+          <button id="photoClose" type="button">关闭</button>
+        </div>
+        <canvas id="photoCanvas"></canvas>
+      </div>
       <div id="status">加载中…</div>
     </div>
   </div>
@@ -104,6 +117,13 @@
     let points = null;
     let home = null;
     const frustumByName = new Map();
+    const keypointsByName = new Map();
+    const photoCache = new Map();
+    const photoEl = document.getElementById("photo");
+    const photoCanvas = document.getElementById("photoCanvas");
+    const photoTitle = document.getElementById("photoTitle");
+    let photoToken = 0;
+    let currentPhoto = null;
 
     function fit(box) {
       const center = box.getCenter(new THREE.Vector3());
@@ -168,21 +188,88 @@
       frustumByName.set(image.name, lines);
     }
 
-    function selectImage(name) {
+    function parseKeypoints(buffer, images) {
+      const view = new DataView(buffer);
+      let offset = 0;
+      const count = view.getUint32(offset, true);
+      offset += 4;
+      if (count !== images.length) throw new Error("keypoints.bin 与场景图像数不一致");
+      for (const image of images) {
+        const n = view.getUint32(offset, true);
+        offset += 4;
+        const xy = new Float32Array(n * 2);
+        for (let i = 0; i < xy.length; i++) {
+          xy[i] = view.getFloat32(offset, true);
+          offset += 4;
+        }
+        keypointsByName.set(image.name, xy);
+      }
+    }
+
+    function drawPhoto() {
+      if (!currentPhoto) return;
+      const { img, xy } = currentPhoto;
+      const bar = photoEl.querySelector("#photoBar").offsetHeight;
+      const width = Math.max(photoEl.clientWidth, 1);
+      const height = Math.max(photoEl.clientHeight - bar, 1);
+      const dpr = Math.min(devicePixelRatio, 2);
+      photoCanvas.width = Math.floor(width * dpr);
+      photoCanvas.height = Math.floor(height * dpr);
+      const ctx = photoCanvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = "#0c0f14";
+      ctx.fillRect(0, 0, width, height);
+      const scale = Math.min(width / img.width, height / img.height);
+      const dw = img.width * scale;
+      const dh = img.height * scale;
+      const ox = (width - dw) / 2;
+      const oy = (height - dh) / 2;
+      ctx.drawImage(img, ox, oy, dw, dh);
+      const radius = Math.max(1.1, 2.2 * scale);
+      ctx.fillStyle = "rgba(255, 72, 72, 0.9)";
+      const n = xy.length / 2;
+      for (let i = 0; i < n; i++) {
+        ctx.beginPath();
+        ctx.arc(ox + xy[i * 2] * scale, oy + xy[i * 2 + 1] * scale, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function closePhoto() {
+      photoToken += 1;
+      currentPhoto = null;
+      photoEl.classList.remove("show");
+      for (const button of listEl.querySelectorAll("button")) button.classList.remove("active");
+      statusEl.textContent = "拖拽旋转，滚轮缩放。点击左侧图像查看提点";
+      if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+    }
+
+    async function selectImage(name) {
+      const token = ++photoToken;
       for (const button of listEl.querySelectorAll("button")) {
         const active = button.dataset.name === name;
         button.classList.toggle("active", active);
         if (active) button.scrollIntoView({ block: "nearest" });
       }
-      const lines = frustumByName.get(name);
-      if (!lines) return;
-      const origin = new THREE.Vector3().setFromMatrixPosition(lines.matrix);
-      const back = new THREE.Vector3(0, 0, 1).transformDirection(lines.matrix);
-      const up = new THREE.Vector3(0, 1, 0).transformDirection(lines.matrix);
-      const dist = home ? camera.position.distanceTo(controls.target) * 0.35 : 2;
-      camera.position.copy(origin).addScaledVector(back, dist).addScaledVector(up, dist * 0.15);
-      controls.target.copy(origin);
-      controls.update();
+      const xy = keypointsByName.get(name);
+      if (!xy) return;
+      photoEl.classList.add("show");
+      photoTitle.textContent = `${name} · 加载照片…`;
+      statusEl.textContent = `${name} · ${xy.length / 2} 个关键点`;
+      let img = photoCache.get(name);
+      if (!img) {
+        img = new Image();
+        img.src = `images/${encodeURIComponent(name)}`;
+        await img.decode();
+        photoCache.set(name, img);
+      }
+      if (token !== photoToken) return;
+      currentPhoto = { img, xy, name };
+      photoTitle.textContent = `${name} · ${xy.length / 2} 个关键点`;
+      drawPhoto();
+      if (location.hash.slice(1) !== encodeURIComponent(name) && location.hash.slice(1) !== name) {
+        history.replaceState(null, "", `${location.pathname}${location.search}#${encodeURIComponent(name)}`);
+      }
     }
 
     async function load() {
@@ -190,14 +277,19 @@
         fail("请用本地服务器打开这个页面，例如：python3 -m http.server 8765");
         return;
       }
-      const sceneRes = await fetch("scene.json");
+      const sceneName = new URLSearchParams(location.search).get("scene");
+      const links = document.getElementById("sceneLinks");
+      links.innerHTML =
+        '<a href="./">SIFT GPU</a> · <a href="?scene=aliked_bf">ALIKED + 暴力匹配</a> · <a href="?scene=aliked">ALIKED + LightGlue</a>';
+      const scenePrefix = sceneName ? `${sceneName}/` : "";
+      const sceneRes = await fetch(`${scenePrefix}scene.json`);
       if (!sceneRes.ok) throw new Error("找不到 scene.json");
       const data = await sceneRes.json();
       document.getElementById("title").textContent = data.label;
       document.getElementById("nimg").textContent = data.num_images.toLocaleString();
       document.getElementById("npts").textContent = data.num_points.toLocaleString();
 
-      const plyRes = await fetch(data.ply);
+      const plyRes = await fetch(`${scenePrefix}${data.ply}`);
       if (!plyRes.ok) throw new Error("找不到 points.ply");
       const parsed = parsePly(await plyRes.arrayBuffer());
       const geometry = new THREE.BufferGeometry();
@@ -235,8 +327,13 @@
         camera.position.copy(home.position);
         controls.target.copy(home.target);
         controls.update();
-        for (const button of listEl.querySelectorAll("button")) button.classList.remove("active");
+        closePhoto();
       });
+      document.getElementById("photoClose").addEventListener("click", closePhoto);
+
+      const keyRes = await fetch(`${scenePrefix}keypoints.bin`);
+      if (!keyRes.ok) throw new Error("找不到 keypoints.bin");
+      parseKeypoints(await keyRes.arrayBuffer(), data.images);
 
       for (const image of data.images) {
         const button = document.createElement("button");
@@ -246,7 +343,7 @@
         button.addEventListener("click", () => selectImage(image.name));
         listEl.appendChild(button);
       }
-      statusEl.textContent = "拖拽旋转，滚轮缩放，右键平移";
+      statusEl.textContent = "拖拽旋转，滚轮缩放。点击左侧图像查看提点";
       if (location.hash.length > 1) {
         selectImage(decodeURIComponent(location.hash.slice(1)));
       }
@@ -258,6 +355,7 @@
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
+      drawPhoto();
     }
     addEventListener("resize", resize);
     resize();
