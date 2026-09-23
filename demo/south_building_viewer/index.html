@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>South Building 稀疏重建</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c0f14;
+      --panel: #161b22;
+      --line: #2a3340;
+      --text: #e7edf5;
+      --muted: #8b98a8;
+      --accent: #7eb6ff;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", "PingFang SC", sans-serif; }
+    #app { display: grid; grid-template-columns: 280px 1fr; height: 100%; }
+    aside { border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+    header { padding: 16px 16px 8px; }
+    h1 { margin: 0; font-size: 16px; font-weight: 650; }
+    .sub { color: var(--muted); margin-top: 4px; font-size: 12px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px 16px 12px; }
+    .stat { background: #0c0f14; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+    .stat b { display: block; font-size: 16px; }
+    .stat span { color: var(--muted); font-size: 11px; }
+    .controls { padding: 0 16px 12px; display: flex; flex-direction: column; gap: 8px; }
+    label { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; align-items: center; }
+    input[type="range"] { width: 140px; }
+    button, .check { background: #0c0f14; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    #list { overflow: auto; border-top: 1px solid var(--line); }
+    #list button { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; border-bottom: 1px solid #222833; background: transparent; }
+    #list button.active { background: #1d2836; color: var(--accent); }
+    #view { position: relative; min-width: 0; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #status { position: absolute; left: 12px; bottom: 12px; color: var(--muted); font-size: 12px; pointer-events: none; }
+    #error { position: absolute; inset: 0; display: none; place-items: center; padding: 24px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside>
+      <header>
+        <h1 id="title">South Building</h1>
+        <div class="sub" id="subtitle">稀疏点云与相机位姿</div>
+      </header>
+      <div class="stats">
+        <div class="stat"><b id="nimg">–</b><span>已注册图像</span></div>
+        <div class="stat"><b id="npts">–</b><span>三维点</span></div>
+      </div>
+      <div class="controls">
+        <label>点大小 <input id="pointSize" type="range" min="1" max="12" value="3" /></label>
+        <label class="check"><span>显示相机</span><input id="showCameras" type="checkbox" checked /></label>
+        <button id="reset" type="button">重置视角</button>
+      </div>
+      <div id="list"></div>
+    </aside>
+    <div id="view">
+      <div id="error"></div>
+      <div id="status">加载中…</div>
+    </div>
+  </div>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    const statusEl = document.getElementById("status");
+    const errorEl = document.getElementById("error");
+    const listEl = document.getElementById("list");
+
+    function fail(message) {
+      errorEl.style.display = "grid";
+      errorEl.textContent = message;
+      statusEl.textContent = "";
+    }
+
+    const view = document.getElementById("view");
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(view.clientWidth, view.clientHeight);
+    renderer.setClearColor(0x0c0f14);
+    view.prepend(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, view.clientWidth / view.clientHeight, 0.01, 1000);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    const rig = new THREE.Group();
+    scene.add(rig);
+    const camerasGroup = new THREE.Group();
+    rig.add(camerasGroup);
+
+    let points = null;
+    let home = null;
+    const frustumByName = new Map();
+
+    function fit(box) {
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const radius = Math.max(size.length() * 0.5, 1e-3);
+      camera.near = radius / 1000;
+      camera.far = radius * 100;
+      camera.position.copy(center).add(new THREE.Vector3(radius, radius * 0.55, radius));
+      camera.lookAt(center);
+      controls.target.copy(center);
+      controls.update();
+      home = {
+        position: camera.position.clone(),
+        target: controls.target.clone(),
+      };
+    }
+
+    function parsePly(buffer) {
+      const text = new TextDecoder().decode(buffer.slice(0, 512));
+      const headerEnd = text.indexOf("end_header\n");
+      if (headerEnd < 0) throw new Error("PLY 头不完整");
+      const header = text.slice(0, headerEnd);
+      const count = Number(header.match(/element vertex (\d+)/)[1]);
+      const body = new DataView(buffer, headerEnd + "end_header\n".length);
+      const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+      const stride = 15;
+      for (let i = 0; i < count; i++) {
+        const o = i * stride;
+        positions[i * 3] = body.getFloat32(o, true);
+        positions[i * 3 + 1] = body.getFloat32(o + 4, true);
+        positions[i * 3 + 2] = body.getFloat32(o + 8, true);
+        colors[i * 3] = body.getUint8(o + 12) / 255;
+        colors[i * 3 + 1] = body.getUint8(o + 13) / 255;
+        colors[i * 3 + 2] = body.getUint8(o + 14) / 255;
+      }
+      return { positions, colors, count };
+    }
+
+    function addFrustum(image, scale) {
+      const halfW = (image.width / 2 / image.focal) * scale;
+      const halfH = (image.height / 2 / image.focal) * scale;
+      const z = -scale;
+      const corners = [
+        [ halfW,  halfH, z],
+        [-halfW,  halfH, z],
+        [-halfW, -halfH, z],
+        [ halfW, -halfH, z],
+      ];
+      const verts = [0, 0, 0];
+      for (const c of corners) verts.push(...c);
+      const indices = [0, 1, 0, 2, 0, 3, 0, 4, 1, 2, 2, 3, 3, 4, 4, 1];
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+      geometry.setIndex(indices);
+      const material = new THREE.LineBasicMaterial({ color: 0x7eb6ff });
+      const lines = new THREE.LineSegments(geometry, material);
+      lines.matrixAutoUpdate = false;
+      lines.matrix.fromArray(image.matrix);
+      lines.name = image.name;
+      camerasGroup.add(lines);
+      frustumByName.set(image.name, lines);
+    }
+
+    function selectImage(name) {
+      for (const button of listEl.querySelectorAll("button")) {
+        const active = button.dataset.name === name;
+        button.classList.toggle("active", active);
+        if (active) button.scrollIntoView({ block: "nearest" });
+      }
+      const lines = frustumByName.get(name);
+      if (!lines) return;
+      const origin = new THREE.Vector3().setFromMatrixPosition(lines.matrix);
+      const back = new THREE.Vector3(0, 0, 1).transformDirection(lines.matrix);
+      const up = new THREE.Vector3(0, 1, 0).transformDirection(lines.matrix);
+      const dist = home ? camera.position.distanceTo(controls.target) * 0.35 : 2;
+      camera.position.copy(origin).addScaledVector(back, dist).addScaledVector(up, dist * 0.15);
+      controls.target.copy(origin);
+      controls.update();
+    }
+
+    async function load() {
+      if (location.protocol === "file:") {
+        fail("请用本地服务器打开这个页面，例如：python3 -m http.server 8765");
+        return;
+      }
+      const sceneRes = await fetch("scene.json");
+      if (!sceneRes.ok) throw new Error("找不到 scene.json");
+      const data = await sceneRes.json();
+      document.getElementById("title").textContent = data.label;
+      document.getElementById("nimg").textContent = data.num_images.toLocaleString();
+      document.getElementById("npts").textContent = data.num_points.toLocaleString();
+
+      const plyRes = await fetch(data.ply);
+      if (!plyRes.ok) throw new Error("找不到 points.ply");
+      const parsed = parsePly(await plyRes.arrayBuffer());
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(parsed.positions, 3));
+      geometry.setAttribute("color", new THREE.BufferAttribute(parsed.colors, 3));
+      geometry.computeBoundingBox();
+      const fitBox = new THREE.Box3();
+      for (const image of data.images) {
+        fitBox.expandByPoint(new THREE.Vector3(...image.position));
+      }
+      const cameraSpan = Math.max(fitBox.getSize(new THREE.Vector3()).length(), 1e-3);
+      fitBox.expandByScalar(cameraSpan * 0.55);
+      const diagonal = Math.max(fitBox.getSize(new THREE.Vector3()).length(), 1e-3);
+      const pointScale = diagonal / 140;
+      points = new THREE.Points(
+        geometry,
+        new THREE.PointsMaterial({
+          size: pointScale,
+          vertexColors: true,
+          sizeAttenuation: true,
+        })
+      );
+      rig.add(points);
+      for (const image of data.images) addFrustum(image, diagonal * 0.008);
+      resize();
+      fit(fitBox);
+
+      document.getElementById("pointSize").addEventListener("input", (event) => {
+        points.material.size = pointScale * (Number(event.target.value) / 3);
+      });
+      document.getElementById("showCameras").addEventListener("change", (event) => {
+        camerasGroup.visible = event.target.checked;
+      });
+      document.getElementById("reset").addEventListener("click", () => {
+        camera.position.copy(home.position);
+        controls.target.copy(home.target);
+        controls.update();
+        for (const button of listEl.querySelectorAll("button")) button.classList.remove("active");
+      });
+
+      for (const image of data.images) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = image.name;
+        button.dataset.name = image.name;
+        button.addEventListener("click", () => selectImage(image.name));
+        listEl.appendChild(button);
+      }
+      statusEl.textContent = "拖拽旋转，滚轮缩放，右键平移";
+      if (location.hash.length > 1) {
+        selectImage(decodeURIComponent(location.hash.slice(1)));
+      }
+    }
+
+    function resize() {
+      const width = Math.max(view.clientWidth, 1);
+      const height = Math.max(view.clientHeight, 1);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+    addEventListener("resize", resize);
+    resize();
+
+    function frame() {
+      controls.update();
+      renderer.render(scene, camera);
+      requestAnimationFrame(frame);
+    }
+    frame();
+
+    load().catch((error) => fail(error.message));
+  </script>
+</body>
+</html>

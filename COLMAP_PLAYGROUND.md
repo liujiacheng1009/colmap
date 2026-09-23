@@ -1,0 +1,646 @@
+# COLMAP 高级玩法
+
+这份笔记是本地实验手册：从官方数据集或自己的照片出发，把 COLMAP 里比较有意思的管线各跑一遍。命令按当前仓库的 CLI 写，细节以 `colmap <command> -h` 和 `doc/` 为准。
+
+官方文档：<https://colmap.github.io/>  
+示例数据：<https://demuc.de/colmap/datasets/>
+
+## 先准备什么
+
+最小可玩数据：
+
+| 数据 | 规模 | 适合 |
+|------|------|------|
+| [South Building](https://demuc.de/colmap/datasets/) | 128 张，同一相机 | 稀疏重建、全局 SfM、导出 |
+| [Gerrard Hall](https://demuc.de/colmap/datasets/) | 100 张，广角、变焦 | 相机模型、稠密重建 |
+| 手机绕一个物体拍 40–80 张 | 自备 | 几乎所有 demo |
+| 手机视频抽帧 | 自备 | 顺序匹配、回环 |
+| 带 GPS 的航拍 / 街拍 | 自备 | 空间匹配、位姿先验、地理配准 |
+| 等距柱状 360° 全景 | 自备 | 全景 rig |
+
+目录约定（后面所有命令都用这个）：
+
+```text
+/path/to/project/
+  images/
+    image1.jpg
+    ...
+```
+
+```bash
+export DATASET_PATH=/path/to/project
+```
+
+从源码构建时，可执行文件在 `build/src/colmap/exe/colmap`。没有显示器或没有 CUDA 时，特征步骤加：
+
+```bash
+--FeatureExtraction.use_gpu 0 --FeatureMatching.use_gpu 0
+```
+
+看结果：
+
+- 稀疏模型：`colmap gui` → `File > Import Model`，选 `sparse/0`。
+- 稠密点云：`File > Import Model from...`，选 `dense/fused.ply`。
+- 网格和贴图用 MeshLab / CloudCompare / Blender。COLMAP 自己不显示网格。
+- 统计：`colmap model_analyzer --path $DATASET_PATH/sparse/0`
+
+`mapper` 中途 Ctrl-C 会把当前模型写到输出目录（退出码 130）。同一条命令加上 `--input_path` 可以接着跑。
+
+## 怎么选管线
+
+| 你手里的数据 | 先跑 |
+|--------------|------|
+| 几十到几百张无序照片 | Demo 1，或 Demo 2 |
+| 几千张、匹配图比较干净 | Demo 3 全局 SfM |
+| 很大、增量太慢 | Demo 4 层次 SfM，或词袋匹配 |
+| 视频、沿路径连续拍摄 | Demo 5 |
+| EXIF 里有 GPS | Demo 6 |
+| 双目 / 多相机刚体 | Demo 7 |
+| 360° 全景 | Demo 8 |
+| 已有模型，又补了新照片 | Demo 9 |
+| 要网格、贴图 | Demo 10 |
+| 想在 Python 里改 BA | Demo 11 |
+
+---
+
+## Demo 1 — 一键重建，换质量和数据预设
+
+`automatic_reconstructor` 把提特征、匹配、稀疏、去畸变、PatchMatch、融合、网格串成一条命令。
+
+```bash
+# 稀疏就够看相机和点云时，关掉稠密，速度快很多
+colmap automatic_reconstructor \
+    --workspace_path $DATASET_PATH \
+    --image_path $DATASET_PATH/images \
+    --quality low \
+    --sparse 1 \
+    --dense 0
+```
+
+值得拧的旋钮：
+
+| 参数 | 取值 | 效果 |
+|------|------|------|
+| `--quality` | `low` `medium` `high` `extreme` | 特征数量、图像分辨率、BA 轮数 |
+| `--data_type` | `individual` `video` `internet` | 分别偏向无序照片、视频、网络图 |
+| `--feature` | `sift` `aliked` `loma` `loma128` | 后三个需要编译时打开 ONNX |
+| `--mapper` | `incremental` `global` `hierarchical` | 三种 SfM |
+| `--mesher` | `poisson` `delaunay` | 稠密打开时的网格方法 |
+| `--Mapper.ba_backend` | `ceres` `caspar` | Caspar 是实验性 GPU BA |
+
+输出一般在工作目录的 `sparse/`、`dense/`。`low` + `--dense 0` 适合先确认这组图能不能重建，再把质量调上去。
+
+同一套预设也可以只生成 ini，自己改完再跑：
+
+```bash
+colmap project_generator \
+    --output_path $DATASET_PATH/project.ini \
+    --quality medium \
+    --output_type automatic_reconstructor
+```
+
+---
+
+## Demo 2 — 手工稀疏流水线（默认 SIFT）
+
+这是后面所有 demo 的底子。图像少于几百张时用穷举匹配。
+
+```bash
+colmap feature_extractor \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --ImageReader.single_camera 1 \
+    --ImageReader.camera_model SIMPLE_RADIAL
+
+colmap exhaustive_matcher \
+    --database_path $DATASET_PATH/database.db
+
+mkdir -p $DATASET_PATH/sparse
+colmap mapper \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --output_path $DATASET_PATH/sparse
+
+colmap model_analyzer --path $DATASET_PATH/sparse/0
+```
+
+同一部相机、同一套参数时加上 `--ImageReader.single_camera 1`，内参共享，通常更稳。变焦或换镜头就不要开。
+
+已知标定可以写死，并在 mapper 里不再优化：
+
+```bash
+colmap feature_extractor \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --ImageReader.single_camera 1 \
+    --ImageReader.camera_model OPENCV \
+    --ImageReader.camera_params "fx,fy,cx,cy,k1,k2,p1,p2"
+
+colmap mapper \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --output_path $DATASET_PATH/sparse \
+    --Mapper.ba_refine_focal_length 0 \
+    --Mapper.ba_refine_principal_point 0 \
+    --Mapper.ba_refine_extra_params 0
+```
+
+导出成能用 MeshLab 打开的点云：
+
+```bash
+colmap model_converter \
+    --input_path $DATASET_PATH/sparse/0 \
+    --output_path $DATASET_PATH/sparse.ply \
+    --output_type PLY
+```
+
+`output_type` 还可以是 `TXT` `BIN` `NVM` `Bundler` `VRML` `R3D` `CAM`。
+
+换成神经网络特征（需要 ONNX）。提取器和匹配器必须成对，同一个数据库里不要混 SIFT 和 ALIKED。
+
+```bash
+# ALIKED + LightGlue
+colmap feature_extractor \
+    --database_path $DATASET_PATH/database_aliked.db \
+    --image_path $DATASET_PATH/images \
+    --FeatureExtraction.type ALIKED_N16ROT \
+    --AlikedExtraction.max_num_features 2048
+
+colmap exhaustive_matcher \
+    --database_path $DATASET_PATH/database_aliked.db \
+    --FeatureMatching.type ALIKED_LIGHTGLUE
+
+# LoMa（ECCV 2026）。LOMA_B 配 LOMA_B / LOMA_R / LOMA_L / LOMA_G
+colmap feature_extractor \
+    --database_path $DATASET_PATH/database_loma.db \
+    --image_path $DATASET_PATH/images \
+    --FeatureExtraction.type LOMA_B
+
+colmap exhaustive_matcher \
+    --database_path $DATASET_PATH/database_loma.db \
+    --FeatureMatching.type LOMA_R
+```
+
+权重默认会下载并缓存。视角变化大、光照差的时候，LightGlue / LoMa 往往比 SIFT 暴力匹配的内点更多。想在同一库上重跑匹配，先清掉旧结果：
+
+```bash
+colmap database_cleaner \
+    --database_path $DATASET_PATH/database.db \
+    --type two_view_geometries \
+    --type matches
+```
+
+---
+
+## Demo 3 — 全局 SfM（GLOMAP 那条路）
+
+增量 `mapper` 一张张加相机，最稳。`global_mapper` 先平均旋转，再做全局定位，大场景往往更快，对匹配外点更敏感，而且依赖还不错的焦距先验。
+
+```bash
+colmap feature_extractor \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images
+
+colmap exhaustive_matcher \
+    --database_path $DATASET_PATH/database.db
+
+# 标定会原地改数据库，先拷一份
+cp $DATASET_PATH/database.db $DATASET_PATH/database_global.db
+colmap view_graph_calibrator \
+    --database_path $DATASET_PATH/database_global.db
+
+mkdir -p $DATASET_PATH/sparse_global
+colmap global_mapper \
+    --database_path $DATASET_PATH/database_global.db \
+    --image_path $DATASET_PATH/images \
+    --output_path $DATASET_PATH/sparse_global
+```
+
+EXIF 焦距可靠时可以跳过 `view_graph_calibrator`。想单独看旋转平均：
+
+```bash
+colmap rotation_averager \
+    --database_path $DATASET_PATH/database_global.db
+```
+
+和增量结果比：
+
+```bash
+colmap model_comparer \
+    --input_path1 $DATASET_PATH/sparse/0 \
+    --input_path2 $DATASET_PATH/sparse_global/0
+```
+
+---
+
+## Demo 4 — 大图集：词袋匹配和层次重建
+
+几百张以上不要穷举。词袋树官方提供预训练文件：<https://demuc.de/colmap/>。不传路径时，顺序匹配的回环检测会自动下载一棵默认树。
+
+```bash
+colmap vocab_tree_matcher \
+    --database_path $DATASET_PATH/database.db \
+    --VocabTreeMatching.vocab_tree_path /path/to/vocab_tree.bin \
+    --VocabTreeMatching.num_images 50
+```
+
+自己建树（特征数大约是视觉单词数的 10–100 倍）：
+
+```bash
+colmap vocab_tree_builder \
+    --database_path $DATASET_PATH/database.db \
+    --vocab_tree_path $DATASET_PATH/vocab_tree.bin
+```
+
+只做检索、不做匹配：
+
+```bash
+colmap vocab_tree_retriever \
+    --database_path $DATASET_PATH/database.db \
+    --vocab_tree_path /path/to/vocab_tree.bin
+```
+
+匹配图已经比较密、增量 BA 太慢时，用层次 SfM：切成有重叠的子模型，各自重建再合并。它通常不如增量稳，合并后最好再三角化和 BA 一轮。
+
+```bash
+mkdir -p $DATASET_PATH/sparse_hier
+colmap hierarchical_mapper \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --output_path $DATASET_PATH/sparse_hier
+
+colmap point_triangulator \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --input_path $DATASET_PATH/sparse_hier/0 \
+    --output_path $DATASET_PATH/sparse_hier/0
+
+colmap bundle_adjuster \
+    --input_path $DATASET_PATH/sparse_hier/0 \
+    --output_path $DATASET_PATH/sparse_hier/0
+```
+
+场景被拆成多个互不连通的模型时，有公共已注册图像才能合并：
+
+```bash
+colmap model_merger \
+    --input_path1 $DATASET_PATH/sparse/0 \
+    --input_path2 $DATASET_PATH/sparse/1 \
+    --output_path $DATASET_PATH/sparse/merged
+```
+
+---
+
+## Demo 5 — 视频 / 沿路径拍摄
+
+文件名必须能按顺序排，例如 `image0001.jpg`、`image0002.jpg`。顺序匹配只比相邻帧，再用词袋做回环。
+
+```bash
+# 从视频抽帧（间隔按运动快慢调）
+mkdir -p $DATASET_PATH/images
+ffmpeg -i video.mp4 -vf fps=2 $DATASET_PATH/images/frame%06d.jpg
+
+colmap feature_extractor \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --ImageReader.single_camera 1
+
+colmap sequential_matcher \
+    --database_path $DATASET_PATH/database.db \
+    --SequentialMatching.overlap 10 \
+    --SequentialMatching.loop_detection 1 \
+    --SequentialMatching.loop_detection_period 10 \
+    --SequentialMatching.loop_detection_num_images 30 \
+    --SequentialMatching.loop_detection_min_index_distance 30
+
+mkdir -p $DATASET_PATH/sparse
+colmap mapper \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --output_path $DATASET_PATH/sparse
+```
+
+`overlap` 是前后各看多少帧。纯前进、没有回到旧地方，可以把 `loop_detection` 关掉。走一圈回到起点时，回环是尺度和漂移能不能闭合的关键。
+
+一键预设：`--data_type video`。
+
+人、车这种会动的区域可以遮掉。掩码和图片相对路径一致，文件名多一个 `.png`：`images/abc/012.jpg` 对应 `masks/abc/012.jpg.png`。
+
+```bash
+colmap feature_extractor \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --ImageReader.mask_path $DATASET_PATH/masks
+```
+
+---
+
+## Demo 6 — GPS：空间匹配、位姿先验、地理配准
+
+提特征时会把 EXIF GPS 存成位姿先验。位置比较准时，用空间近邻匹配，比穷举省很多。
+
+```bash
+colmap feature_extractor \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images
+
+colmap spatial_matcher \
+    --database_path $DATASET_PATH/database.db \
+    --SpatialMatching.max_num_neighbors 50 \
+    --SpatialMatching.max_distance 100
+
+mkdir -p $DATASET_PATH/sparse
+colmap pose_prior_mapper \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --output_path $DATASET_PATH/sparse \
+    --overwrite_priors_covariance 1 \
+    --prior_position_std_x 1.0 \
+    --prior_position_std_y 1.0 \
+    --prior_position_std_z 2.0
+```
+
+`pose_prior_mapper` 就是带位置约束的增量重建。手机 GPS 垂直方向通常更差，可以把 `prior_position_std_z` 设大一点。
+
+已经有一个任意坐标系的稀疏模型、只想事后贴到地图上：至少 3 张图的相机中心。文本格式：
+
+```text
+image_name1.jpg lat1 lon1 alt1
+image_name2.jpg lat2 lon2 alt2
+image_name3.jpg lat3 lon3 alt3
+```
+
+```bash
+colmap model_aligner \
+    --input_path $DATASET_PATH/sparse/0 \
+    --output_path $DATASET_PATH/sparse/geo \
+    --database_path $DATASET_PATH/database.db \
+    --ref_is_gps 1 \
+    --alignment_type enu \
+    --alignment_max_error 3.0
+```
+
+`--alignment_type` 用 `enu`（东-北-天，第一张 GPS 当原点）或 `ecef`。手写坐标文件时把 `--database_path` 换成 `--ref_images_path`。
+
+室内、建筑立面还可以按曼哈顿假设摆正坐标轴（重力方向 + 主水平方向）：
+
+```bash
+colmap model_orientation_aligner \
+    --image_path $DATASET_PATH/images \
+    --input_path $DATASET_PATH/sparse/0 \
+    --output_path $DATASET_PATH/sparse/aligned
+```
+
+按包围盒切开大模型：
+
+```bash
+colmap model_splitter \
+    --input_path $DATASET_PATH/sparse/geo \
+    --output_path $DATASET_PATH/sparse/tiles \
+    --split_type extent \
+    --split_params 50,50,50
+```
+
+---
+
+## Demo 7 — 多相机 rig
+
+同一时刻曝光的多相机（双目、车载环视）要建成一个 rig：参考相机是 rig 原点，其余相机相对它固定。同一帧的文件名必须相同：
+
+```text
+images/
+  rig1/camera1/image0001.jpg
+  rig1/camera2/image0001.jpg
+```
+
+```bash
+colmap feature_extractor \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --ImageReader.single_camera_per_folder 1
+
+colmap rig_configurator \
+    --database_path $DATASET_PATH/database.db \
+    --rig_config_path $DATASET_PATH/rig_config.json
+```
+
+外参已知时 `rig_config.json` 类似：
+
+```json
+[
+  {
+    "cameras": [
+      {
+        "image_prefix": "rig1/camera1/",
+        "ref_sensor": true
+      },
+      {
+        "image_prefix": "rig1/camera2/",
+        "cam_from_rig_rotation": [0.7071067811865475, 0.0, 0.7071067811865476, 0.0],
+        "cam_from_rig_translation": [0.12, 0.0, 0.0]
+      }
+    ]
+  }
+]
+```
+
+旋转是 Hamilton 四元数 `(w, x, y, z)` 的 `cam_from_rig`。配置 rig **之后**再匹配。视频式采集用 `sequential_matcher`，它会按帧去配相邻帧里的所有相机。
+
+```bash
+colmap sequential_matcher \
+    --database_path $DATASET_PATH/database.db
+
+mkdir -p $DATASET_PATH/sparse
+colmap mapper \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --output_path $DATASET_PATH/sparse \
+    --Mapper.ba_refine_sensor_from_rig 0
+```
+
+外参很准时加上 `--FeatureMatching.rig_verification 1`。同一帧的相机视野完全不重叠时，用 `--FeatureMatching.skip_image_pairs_in_same_frame 1`。
+
+外参未知：JSON 里只写 `image_prefix` 和 `ref_sensor`，先正常重建，再用重建结果估计平均 rig 外参，第二次重建时固定 `--Mapper.ba_refine_sensor_from_rig 0`。完整步骤在 `doc/rigs.rst`。
+
+---
+
+## Demo 8 — 360° 全景
+
+等距柱状全景会被切成一组已知内外参的虚拟针孔相机，当成 rig 来重建。需要 pycolmap，以及可选的全景渲染依赖。
+
+```bash
+# 若仓库里已经装过 COLMAP 到 ./install
+colmap_DIR=./install ./python/incremental_build.sh
+pip install 'pycolmap[panorama]'
+
+python python/examples/panorama_sfm.py \
+    --input_image_path /path/to/panoramas \
+    --output_path /path/to/pano_out \
+    --matcher SEQUENTIAL \
+    --mapper INCREMENTAL \
+    --pano_render_type PERSPECTIVE_OVERLAPPING
+```
+
+无序全景把 `--matcher` 换成 `EXHAUSTIVE` 或 `VOCABTREE`，`--mapper` 可以换成 `GLOBAL`。脚本要和当前 COLMAP / pycolmap 版本一致。
+
+---
+
+## Demo 9 — 给已有模型补图
+
+新照片放进 `images/`，对**同一个**数据库再提一次特征（已有图片会跳过），然后只注册新图。这一步不做 BA，也不做三角化。
+
+```bash
+colmap feature_extractor \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images
+
+colmap exhaustive_matcher \
+    --database_path $DATASET_PATH/database.db
+
+colmap image_registrator \
+    --database_path $DATASET_PATH/database.db \
+    --input_path $DATASET_PATH/sparse/0 \
+    --output_path $DATASET_PATH/sparse/registered
+
+colmap point_triangulator \
+    --database_path $DATASET_PATH/database.db \
+    --image_path $DATASET_PATH/images \
+    --input_path $DATASET_PATH/sparse/registered \
+    --output_path $DATASET_PATH/sparse/triangulated
+
+colmap bundle_adjuster \
+    --input_path $DATASET_PATH/sparse/triangulated \
+    --output_path $DATASET_PATH/sparse/refined
+```
+
+也可以直接 `mapper --input_path $DATASET_PATH/sparse/0`，让增量流程自己注册、三角化并做 BA。
+
+删掉某张图、或按重投影误差滤点：
+
+```bash
+colmap image_deleter \
+    --input_path $DATASET_PATH/sparse/0 \
+    --output_path $DATASET_PATH/sparse/pruned \
+    --image_names_path $DATASET_PATH/drop_list.txt
+
+colmap point_filtering \
+    --input_path $DATASET_PATH/sparse/0 \
+    --output_path $DATASET_PATH/sparse/filtered
+```
+
+---
+
+## Demo 10 — 稠密点云、网格、简化、贴图
+
+稀疏模型先去畸变，PatchMatch 需要 CUDA。
+
+```bash
+mkdir -p $DATASET_PATH/dense
+colmap image_undistorter \
+    --image_path $DATASET_PATH/images \
+    --input_path $DATASET_PATH/sparse/0 \
+    --output_path $DATASET_PATH/dense \
+    --output_type COLMAP \
+    --max_image_size 2000
+
+colmap patch_match_stereo \
+    --workspace_path $DATASET_PATH/dense \
+    --workspace_format COLMAP \
+    --PatchMatchStereo.geom_consistency true
+
+colmap stereo_fusion \
+    --workspace_path $DATASET_PATH/dense \
+    --workspace_format COLMAP \
+    --input_type geometric \
+    --output_path $DATASET_PATH/dense/fused.ply
+
+colmap poisson_mesher \
+    --input_path $DATASET_PATH/dense/fused.ply \
+    --output_path $DATASET_PATH/dense/meshed-poisson.ply
+
+# 需要 CGAL
+colmap delaunay_mesher \
+    --input_path $DATASET_PATH/dense \
+    --output_path $DATASET_PATH/dense/meshed-delaunay.ply
+
+colmap advancing_front_mesher \
+    --input_path $DATASET_PATH/dense \
+    --output_path $DATASET_PATH/dense/meshed-advancing-front.ply
+
+colmap mesh_simplifier \
+    --input_path $DATASET_PATH/dense/meshed-poisson.ply \
+    --output_path $DATASET_PATH/dense/meshed-poisson-simplified.ply \
+    --MeshSimplification.target_face_ratio 0.25
+
+colmap mesh_texturer \
+    --workspace_path $DATASET_PATH/dense \
+    --input_path $DATASET_PATH/dense/meshed-poisson-simplified.ply \
+    --output_path $DATASET_PATH/dense/textured
+```
+
+`--max_image_size 2000` 是速度和细节的折中。Poisson 表面更光滑，Delaunay 更贴观测、洞更少。贴图之前先简化，不然图集会非常大。
+
+立体校正（两台已经标定的相机，给传统视差算法用）：
+
+```bash
+colmap image_rectifier \
+    --input_path $DATASET_PATH/sparse/0 \
+    --output_path $DATASET_PATH/rectified
+```
+
+---
+
+## Demo 11 — Python：改重建循环
+
+仓库里这几个脚本可以直接改：
+
+| 脚本 | 玩法 |
+|------|------|
+| `python/examples/custom_incremental_pipeline.py` | 用 Python 重写增量循环，中间可以插自己的逻辑 |
+| `python/examples/custom_bundle_adjustment.py` | 换 BA 的残差和固定哪些参数 |
+| `python/examples/visualize_model.py` | Open3D 看稀疏模型和相机 |
+| `python/examples/panorama_sfm.py` | Demo 8 |
+| `python/pycolmap/panorama.py` | 全景渲染和 rig 的实现 |
+
+最小读取：
+
+```python
+import pycolmap
+
+rec = pycolmap.Reconstruction("/path/to/project/sparse/0")
+print(rec.summary())
+for image_id, image in rec.images.items():
+    print(image.name, image.cam_from_world.translation)
+```
+
+自己接 Ctrl-C / 抢占信号：
+
+```python
+import signal
+import pycolmap
+
+token = pycolmap.CancellationToken()
+signal.signal(signal.SIGTERM, lambda *_: token.cancel())
+pycolmap.incremental_mapping(
+    database_path,
+    image_path,
+    output_path,
+    cancellation_token=token,
+)
+```
+
+---
+
+## 一组可以连续做完的下午
+
+用 South Building，或者自己绕物体拍的 60 张：
+
+1. Demo 1，`--quality low --dense 0`，确认能出模型。
+2. Demo 2，`--quality` 换成手工流水线，`model_analyzer` 看注册了多少张、平均重投影误差。
+3. 拷贝数据库，跑 Demo 3，`model_comparer` 看两种 SfM 差多少。
+4. 若机器有 CUDA，用 Demo 2 的 `sparse/0` 跑 Demo 10 的前半段，得到 `fused.ply`。
+5. `model_converter` 导出 PLY，或 `visualize_model.py` 在 Open3D 里转一转。
+
+视频和 GPS 各自换一组数据再跑 Demo 5、Demo 6。全景和 rig 需要对应的采集方式，硬套普通照片没有意义。
+
+每个命令的全部参数：`colmap <command> -h`。概念和故障排查在 `doc/tutorial.rst`、`doc/faq.rst`、`doc/rigs.rst`、`doc/features.rst`。
