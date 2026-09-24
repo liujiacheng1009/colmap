@@ -17,6 +17,10 @@ AGENTS.override.md
 build*/
 install*/
 data/
+demo/south_building_viewer/**/scene.json
+demo/south_building_viewer/**/keypoints.bin
+demo/south_building_viewer/**/points.ply
+demo/south_building_viewer/images
 benchmark/reconstruction/data/
 benchmark/reconstruction/runs/
 doc/_build
