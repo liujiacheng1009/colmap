@@ -280,7 +280,7 @@
       const sceneName = new URLSearchParams(location.search).get("scene");
       const links = document.getElementById("sceneLinks");
       links.innerHTML =
-        '<a href="./">SIFT GPU</a> · <a href="?scene=aliked_bf">ALIKED + 暴力匹配</a> · <a href="?scene=aliked">ALIKED + LightGlue</a>';
+        '<a href="./">SIFT GPU</a> · <a href="?scene=aliked_bf">ALIKED + 暴力匹配</a> · <a href="?scene=loma_bf">LoMa-B + 暴力匹配</a> · <a href="?scene=aliked">ALIKED + LightGlue</a>';
       const scenePrefix = sceneName ? `${sceneName}/` : "";
       const sceneRes = await fetch(`${scenePrefix}scene.json`);
       if (!sceneRes.ok) throw new Error("找不到 scene.json");
