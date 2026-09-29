@@ -214,7 +214,7 @@ html_logo = "_static/colmap-logo.svg"
 html_favicon = "_static/favicon.svg"
 
 # Give the landing page a full-width layout by dropping the left sidebar.
-html_sidebars: dict[str, list[str]] = {"index": [], "viewer": []}
+html_sidebars: dict[str, list[str]] = {"index": []}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

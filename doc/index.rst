@@ -19,7 +19,6 @@ COLMAP
      </p>
      <div class="hero__cta">
        <a class="hero__cta--primary" href="algorithms/index.html">算法实现</a>
-       <a class="hero__cta--secondary" href="tutorial.html">使用教程</a>
        <a class="hero__cta--secondary" href="https://github.com/colmap/colmap">GitHub</a>
      </div>
    </div>
@@ -92,7 +91,7 @@ COLMAP
       :link: algorithms/localization
       :link-type: doc
 
-      用本仓库 COLMAP 做稀疏定位，以及 3DGS 训练和光度细化。
+      SuperPoint、LightGlue、NetVLAD 怎么建图和注册，以及高斯怎么初始化、加密和用光度细化位姿。
 
 
 开始使用
@@ -100,8 +99,8 @@ COLMAP
 
 1. 从本仓库源码编译 ``colmap``，或下载
    `预编译包 <https://github.com/colmap/colmap/releases>`_。
-2. 下载示例数据（见 :ref:`数据集 <datasets>`），或使用自己的照片。
-3. 用 **自动重建** 一次跑完整条流程（见 :ref:`快速开始 <quick-start>`）。
+2. 准备一组重叠照片。
+3. 从 :doc:`algorithms/index` 按数据流读各段算法的实现。
 
 
 支持
@@ -180,28 +179,3 @@ PyCOLMAP 的 Python 绑定最初由
    algorithms/bundle_adjustment
    algorithms/mvs
    algorithms/localization
-
-.. toctree::
-   :hidden:
-   :caption: 使用与数据
-   :maxdepth: 1
-
-   tutorial
-   concepts
-   viewer
-   experiments
-   features
-   database
-   cameras
-   rigs
-   format
-   datasets
-   gui
-   cli
-   pycolmap/index
-   faq
-   changelog
-   contribution
-   license
-   bibliography
-   legacy

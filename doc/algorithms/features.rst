@@ -72,4 +72,4 @@ LoMa
 和后面怎么接
 ------------
 
-匹配器必须和提取器配套，否则描述子维度和度量对不上。对应关系写在 :doc:`/features`。几何阶段不关心描述子本身，只使用关键点位置；词袋检索的空间验证才会用到尺度和方向。
+匹配器必须和提取器配套，否则描述子维度和度量对不上。SIFT 配 ``SIFT_BRUTEFORCE`` 或 ``SIFT_LIGHTGLUE``，ALIKED 配 ``ALIKED_BRUTEFORCE`` 或 ``ALIKED_LIGHTGLUE``，``LOMA_B`` 配 ``LOMA_BRUTEFORCE``、``LOMA_B``、``LOMA_R``、``LOMA_L`` 或 ``LOMA_G``，``LOMA_B128`` 配 ``LOMA_BRUTEFORCE`` 或 ``LOMA_B128`` 。几何阶段不关心描述子本身，只使用关键点位置；词袋检索的空间验证才会用到尺度和方向。
