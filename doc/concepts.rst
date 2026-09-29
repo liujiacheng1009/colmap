@@ -1,66 +1,47 @@
 .. _concepts:
 
-Key Concepts
-============
+关键概念
+========
 
-Starting from COLMAP 3.12, the concepts of rigs and frames have been introduced
-to enable a principled modeling of multi-sensor platforms as well as 360° panorama
-images. These concepts provide a structured framework to organize sensors and
-their measurements, enabling more flexible calibration and fusion of diverse
-data types (e.g., see :ref:`rig-support`).
+从 COLMAP 3.12 起，引入了 rig 和 frame，用来描述多传感器平台和 360° 全景。
+它们把传感器和测量组织成固定结构，方便标定和融合不同数据
+（见 :ref:`rig-support`）。
 
-These additions are backward-compatible and do not affect the traditional, default usage
-of COLMAP for single-camera capture setups.
+这些改动向后兼容，单相机采集的默认用法不变。
 
 
 .. _sensors:
 
-Sensors and Measurements
-------------------------
+传感器与测量
+------------
 
-A **sensor** is a device that captures data about the environment, producing
-measurements at specific timestamps. The most common sensor type is the camera,
-which captures images as its measurements. Other examples include IMUs
-(Inertial Measurement Units), which record acceleration and angular velocity,
-and GNSS receivers, which provide absolute position data. 
+**传感器**\采集环境数据，并在某个时刻给出测量。最常见的是相机，测量就是图像。
+其他例子包括 IMU（记录加速度和角速度）以及 GNSS 接收机（给出绝对位置）。
 
-Currently, COLMAP supports only cameras and their image measurements, though the
-sensor concept is designed to extend to other types such as IMUs and GNSS for
-future support of multi-modal data fusion.
+目前 COLMAP 只支持相机及其图像。传感器这一层是为以后接入 IMU、GNSS
+等多源数据留的。
 
 
 .. _rigs:
 
-Rigs
-----
+Rig
+---
 
-A **rig** models a platform composed of multiple sensors with fixed relative poses,
-enabling synchronized and consistent multi-sensor data collection. Examples
-include stereo camera setups, headworn AR/VR devices, and autonomous driving
-sensor suites. It can also be virtual — for example, a rig modeling multiple
-virtual cameras arranged to capture overlapping views used to create seamless
-360° panoramic images.
+**Rig** 是一组相对位姿固定的传感器，用来同步采集。例如双目相机、头戴 AR/VR
+设备、自动驾驶传感器套件。它也可以是虚拟的，例如一组互相重叠的虚拟相机，
+用来拼成 360° 全景。
 
-In COLMAP, each sensor must be uniquely associated with exactly one rig. Each rig
-has a single reference sensor that defines its origin. For example, in a stereo
-camera rig, one camera is designated as the reference sensor with an identity
-``sensor_from_rig`` pose, while the second camera’s pose is defined relative to
-this reference. In a single-camera setup, the camera itself serves as the sole
-reference sensor for its rig.
+每个传感器只属于一个 rig。每个 rig 有一个参考传感器，定义该 rig 的原点。
+双目时，一台相机的 ``sensor_from_rig`` 是单位变换，另一台相对它定义。
+单相机时，这台相机自己就是该 rig 的参考传感器。
 
 
 .. _frames:
 
-Frames
-------
+Frame
+-----
 
-A **frame** represents a rig captured at a single timestamp, containing measurements
-from one or more sensors within that rig. For example, if a rig consists of
-three sensors, a frame may include measurements from all three sensors, or only
-a subset, depending on availability. This concept allows association of multi-sensor 
-data at specific points in time.
+**Frame** 是某个时刻的一次 rig 采集，包含该 rig 里一台或多台传感器的测量。
+三台传感器的 rig，某一帧可以三台都有数据，也可以只有其中一部分。
 
-For instance, in a stereo camera rig recording video, each frame corresponds to a
-set of two images—one from each camera—captured at the same moment.
-
-
+双目录像时，每一帧对应同一时刻的两张图像，各来自一台相机。

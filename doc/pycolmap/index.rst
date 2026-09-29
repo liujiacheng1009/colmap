@@ -3,38 +3,37 @@
 PyCOLMAP
 ========
 
-PyCOLMAP exposes to Python most capabilities of COLMAP.
+PyCOLMAP 把 COLMAP 的大部分能力暴露给 Python。
 
-Installation
-------------
+安装
+----
 
-Pre-built wheels for Linux, macOS, and Windows can be installed using pip::
+Linux、macOS 和 Windows 的预编译 wheel 可以用 pip 安装::
 
    pip install pycolmap
 
-The wheels are automatically built and pushed to `PyPI
-<https://pypi.org/project/pycolmap/>`_ at each release.
-To benefit from GPU acceleration, wheels built for CUDA 12 (only for Linux - for now)
-are available under the `package pycolmap-cuda12 <https://pypi.org/project/pycolmap-cuda12/>`_.
+每次发布都会自动构建并上传到 `PyPI
+<https://pypi.org/project/pycolmap/>`_。
+要使用 GPU，Linux 上另有针对 CUDA 12 构建的
+`pycolmap-cuda12 <https://pypi.org/project/pycolmap-cuda12/>`_。
 
-To build PyCOLMAP from source, follow these steps:
+从源码构建 PyCOLMAP：
 
-1. Install COLMAP from source following :ref:`installation`.
-2. Build PyCOLMAP:
+1. 先从源码编译并安装 COLMAP。
+2. 再构建 PyCOLMAP：
 
-   * On Linux and macOS::
+   * Linux 和 macOS::
 
       python -m pip install .
 
-   * On Windows, after installing COLMAP via VCPKG, run in powershell::
+   * Windows 上用 VCPKG 装好 COLMAP 后，在 PowerShell 里运行::
 
       python -m pip install . `
           --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
           --cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
 
-Some features, such as cost functions, require that `PyCeres
-<https://github.com/cvg/pyceres>`_ is installed in the same manner as PyCOLMAP,
-so either from PyPI or from source.
+代价函数等功能还需要同样方式安装 `PyCeres
+<https://github.com/cvg/pyceres>`_，可以从 PyPI 安装，也可以从源码安装。
 
 API
 -----

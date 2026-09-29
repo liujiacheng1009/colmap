@@ -74,6 +74,7 @@ master_doc = "index"
 # General information about the project.
 project = "COLMAP"
 copyright = "2026, COLMAP Team"
+language = "zh_CN"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -96,7 +97,7 @@ release = version
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ["_build"]
+exclude_patterns = ["_build", "install.rst"]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -156,9 +157,8 @@ html_theme_options = {
         },
     ],
     "navbar_align": "left",
-    # Keep the primary guides and 3D Viewer visible. Collapse the rest into
-    # More.
-    "header_links_before_dropdown": 4,
+    # Show the algorithm pages in the top bar. The rest go under More.
+    "header_links_before_dropdown": 5,
     "navigation_with_keys": True,
     "show_prev_next": True,
     "pygments_light_style": "default",
@@ -221,7 +221,7 @@ html_sidebars: dict[str, list[str]] = {"index": [], "viewer": []}
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 html_css_files = ["custom.css", "landing.css"]
-html_js_files = ["install_selector.js", "external_links.js"]
+html_js_files = ["external_links.js"]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied

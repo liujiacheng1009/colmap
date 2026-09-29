@@ -1,71 +1,54 @@
 .. _gui:
 
-Graphical User Interface
-========================
+图形界面
+========
 
-The graphical user interface of COLMAP provides access to most of the available
-functionality and visualizes the reconstruction process in "real-time". To start
-the GUI, you can run the pre-built packages (Windows: ``COLMAP.bat``, Mac:
-``COLMAP.app``), execute ``colmap gui`` if you installed COLMAP or execute
-``./src/colmap/exe/colmap gui`` from the CMake build folder. The GUI application
-requires an attached display with at least OpenGL 3.2 support. Registered images
-are visualized in red and reconstructed points in their average point color
-extracted from the images. The viewer can also visualize dense point clouds
-produced from Multi-View Stereo.
+COLMAP 的图形界面覆盖大部分功能，并在重建过程中实时显示模型。
+启动方式：预编译包（Windows 为 ``COLMAP.bat``，Mac 为 ``COLMAP.app``），
+已安装时执行 ``colmap gui``，或在 CMake 构建目录执行
+``./src/colmap/exe/colmap gui``\。需要一块至少支持 OpenGL 3.2 的显示器。
+已注册图像显示为红色，重建点使用从图像取出的平均颜色。查看器也可以显示
+多视图立体得到的稠密点云。
 
-For lightweight, read-only inspection of binary sparse models in a web browser,
-see the :doc:`3D Viewer <viewer>`. It provides the same core model-view controls
-and visual conventions as the native viewer, but not the GUI's reconstruction,
-editing, dense visualization, or advanced rendering functionality.
+若只想在浏览器里只读查看二进制稀疏模型，见 :doc:`三维查看器 <viewer>`\。
+它的视角操作和显示约定与原生查看器相同，但不做重建、编辑、稠密显示或高级渲染。
 
 
-Model Viewer Controls
----------------------
+模型查看操作
+------------
 
-- **Rotate model**: Left-click and drag.
-- **Shift model**: Right-click or <CTRL>-click (<CMD>-click) and drag.
-- **Zoom model**: Scroll.
-- **Change point size**: <CTRL>-scroll (<CMD>-scroll).
-- **Change camera size**: <ALT>-scroll.
-- **Adjust clipping plane**: <SHIFT>-scroll.
-- **Select point**: Double-left-click point (change point size if too small).
-  The green lines visualize the projections into the images that see the point.
-  The opening window shows the projected locations of the point in all images.
-- **Select camera**: Double-left-click camera (change camera size if too small).
-  The purple lines visualize images that see at least one common point with the
-  selected image. The opening window shows a few statistics of the image.
-- **Reset view**: To reset all viewing settings, choose ``Render > Reset view``.
+- **旋转模型**：按住左键拖动。
+- **平移模型**：按住右键，或 <CTRL> 加左键（Mac 为 <CMD>）拖动。
+- **缩放模型**：滚轮。
+- **改变点大小**：<CTRL> 加滚轮（Mac 为 <CMD>）。
+- **改变相机大小**：<ALT> 加滚轮。
+- **调整裁剪平面**：<SHIFT> 加滚轮。
+- **选择点**：双击该点（太小时先把点放大）。绿线表示能看到该点的图像投影。
+  弹出窗口显示该点在各图像中的投影位置。
+- **选择相机**：双击该相机（太小时先把相机放大）。紫线表示与所选图像至少共视一个点的图像。
+  弹出窗口显示该图像的若干统计。
+- **重置视图**：``Render > Reset view``\。
 
 
-Render Options
---------------
+渲染选项
+--------
 
-The model viewer allows you to render the model with different settings,
-projections, colormaps, etc. Please, choose ``Render > Render options``.
-
-
-Create Screenshots
-------------------
-
-To create screenshots of the current viewpoint (without coordinate axes), choose
-``Extras > Grab image`` and save the image in the format of your choice.
+查看器可以改渲染设置、投影和颜色映射。打开 ``Render > Render options``\。
 
 
-Create Screencast
------------------
+截图
+----
 
-To create a video screen capture of the reconstructed model, choose ``Extras >
-Grab movie``. This dialog allows you to set individual control viewpoints by
-choosing ``Add``. COLMAP generates a fixed number of frames per second between
-each control viewpoint by smoothly interpolating the linear trajectory, and to
-interpolate the configured point and the camera sizes at the time of clicking
-``Add``. To change the number of frames between two viewpoints or to reorder
-individual viewpoints, modify the time of the viewpoint by double-clicking the
-respective cell in the table. Note that the video capture requires to set the
-perspective projection model in the render options. You can review the
-trajectory in the viewer, which is rendered in light blue. Choose ``Assemble
-movie``, if you are done creating the trajectory. The output directory then
-contains the individual frames of the video capture, which can be assembled to a
-movie using `FFMPEG <https://www.ffmpeg.org/>`_ with the following command::
+对当前视角截图（不含坐标轴）：``Extras > Grab image``，再按需要的格式保存。
+
+
+录屏
+----
+
+把重建模型录成视频：``Extras > Grab movie``\。在对话框里用 ``Add`` 添加控制视点。
+COLMAP 在相邻视点之间按固定帧率平滑插值直线轨迹，并插值点击 ``Add`` 时的点大小和相机大小。
+要改两视点之间的帧数或调整顺序，双击表格里该视点的时间。录制需要在渲染选项里使用透视投影。
+轨迹在查看器里以浅蓝色显示。轨迹设好后选 ``Assemble movie``\。输出目录里是各帧图像，
+可用 `FFMPEG <https://www.ffmpeg.org/>`_ 合成::
 
     ffmpeg -i frame%06d.png -r 30 -vf scale=1680:1050 movie.mp4

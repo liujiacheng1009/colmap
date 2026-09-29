@@ -1,30 +1,24 @@
 .. _datasets:
 
-Datasets
-========
+数据集
+======
 
-A number of different datasets are available for download at:
+可下载的示例数据在：
 https://demuc.de/colmap/datasets/
 
-- **Gerrard Hall**: 100 high-resolution images of the "Gerrard" hall at UNC
-  Chapel Hill, which is the building right next to the "South" building.
-  The images are taken with the same camera but different focus
-  using a wide-angle lens.
-- **Graham Hall**: 1273 high-resolution images of the interior and exterior of
-  "Graham" memorial hall at UNC Chapel Hill. The images are taken with the same
-  camera but different focus using a wide-angle lens.
-- **Person Hall**: 330 high-resolution images of the "Person" hall at UNC Chapel
-  Hill. The images are taken with the same camera using a wide-angle lens.
-- **South Building**: 128 images of the "South" building at UNC Chapel Hill. The
-  images are taken with the same camera, kindly provided by Christopher Zach.
+- **Gerrard Hall**：北卡罗来纳大学教堂山分校 Gerrard 楼的 100 张高分辨率照片，
+  紧挨着 South 楼。同一台相机、广角镜头，对焦不同。
+- **Graham Hall**：Graham 纪念堂室内外 1273 张高分辨率照片。同一台相机、广角镜头，对焦不同。
+- **Person Hall**：Person 楼 330 张高分辨率照片。同一台相机、广角镜头。
+- **South Building**：South 楼 128 张照片。同一台相机，由 Christopher Zach 提供。
 
-A number of sample reconstructions produced by COLMAP can be viewed here:
+COLMAP 做出的一些示例重建可以在下面观看：
 
-**Sparse reconstructions**:
+**稀疏重建**：
 
 - https://youtu.be/PmXqdfBQxfQ
 - https://youtu.be/DIv1aGKqSIk
 
-**Dense reconstructions**:
+**稠密重建**：
 
 - https://youtu.be/11awtGWSqQU

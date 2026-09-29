@@ -1,10 +1,8 @@
-License
-=======
+许可证
+======
 
-The COLMAP library is licensed under the new BSD license. Note that this text
-refers only to the license for COLMAP itself, independent of its thirdparty
-dependencies, which are separately licensed. Building COLMAP with these
-dependencies may affect the resulting COLMAP license.
+COLMAP 库使用新 BSD 许可证。下面这段只约束 COLMAP 本身，与各自单独授权的第三方依赖无关。
+和这些依赖一起编译时，最终产物的许可可能受它们影响。
 
 .. code-block:: text
 

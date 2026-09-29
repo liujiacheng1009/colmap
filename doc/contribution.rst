@@ -1,17 +1,15 @@
-Contribution
-============
+贡献
+====
 
-Contributions (bug reports, bug fixes, improvements, etc.) are very welcome and
-should be submitted in the form of new issues and/or pull requests on GitHub.
+欢迎通过 GitHub issue 和 pull request 提交缺陷报告、修复和改进。
 
-Please, adhere to the Google coding style guide::
+请按 Google C++ 风格指南编写代码::
 
     https://google.github.io/styleguide/cppguide.html
 
-by using the provided ".clang-format" file.
+并使用仓库里的 ``.clang-format``\。
 
-Document functions, methods, classes, etc. with inline documentation strings
-describing the API, using the following format::
+函数、方法和类用下面的格式写行内文档，说明 API::
 
     // Short description.
     //
@@ -22,6 +20,4 @@ describing the API, using the following format::
     //
     // @return                      Description of optional return value.
 
-Add unit tests for all newly added code and make sure that algorithmic
-"improvements" generalize and actually improve the results of the pipeline on a
-variety of datasets.
+新代码要带单元测试。算法上的改动需要在多种数据上确实提高流程结果，而不只在单个例子上变好。

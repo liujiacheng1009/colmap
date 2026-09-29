@@ -1,14 +1,12 @@
 .. _database-format:
 
-Database Format
-===============
+数据库格式
+==========
 
-COLMAP stores all extracted information in a single SQLite database file. The
-database can be accessed with the database management toolkit in the COLMAP GUI,
-the provided C++ database API (see ``src/colmap/scene/database.h``), or using
-Python with pycolmap.
+COLMAP 把提取出的信息存在一个 SQLite 数据库里。可以用图形界面里的数据库工具、
+C++ 数据库 API（``src/colmap/scene/database.h``），或 pycolmap 访问。
 
-The database contains the following tables:
+数据库包含这些表：
 
 - rigs
 - cameras
@@ -19,92 +17,68 @@ The database contains the following tables:
 - matches
 - two_view_geometries
 
-To initialize an empty SQLite database file with the required schema, you can
-either create a new project in the GUI or run the ``colmap database_creator`` command.
+要建一个带所需表结构的空库，可以在图形界面新建工程，或运行 ``colmap database_creator``\。
 
 
-Rigs and Sensors
+Rig 与传感器
+------------
+
+rig 与传感器（相机等）是 1 对 N。其中一个传感器被选为参考，定义 rig 的原点。
+每个传感器只能属于一个 rig。
+
+
+Rig 与 Frame
+------------
+
+rig 与 frame 是 1 对 N。一个 frame 是该 rig 在某一时刻的一次实例，
+可以包含全部传感器，也可以只包含其中一部分，它们在同一时刻曝光。
+
+
+相机与图像
+----------
+
+相机与图像是 1 对 N。这对运动恢复结构很重要：同一相机共享内参
+（焦距、主点、畸变等），每张图像有自己的外参（朝向和位置）。
+
+相机内参以连续的 ``float64`` 二进制块存储，顺序见 ``src/colmap/sensor/models.h``\。
+COLMAP 只用被图像引用的相机，其余相机被忽略。
+
+images 表的 ``name`` 列是图像文件夹内的唯一相对路径。因此数据库文件和图像文件夹可以挪到别处，
+只要相对目录结构不变。
+
+手工插入图像和相机时，标识必须为正且非零，即 ``image_id > 0`` 且 ``camera_id > 0``\。
+
+
+关键点与描述子
+--------------
+
+检测到的关键点按行主序存成 ``float32`` 二进制块。前两列是图像中的 X、Y。
+COLMAP 约定图像左上角坐标为 ``(0, 0)``，左上角像素中心为 ``(0.5, 0.5)``\。
+若有 4 列，特征几何是相似变换，第三列是尺度，第四列是方向（按 SIFT 约定）。
+若有 6 列，特征几何是仿射，后 4 列是仿射形状（见 ``src/colmap/feature/types.h``）。
+
+描述子按行主序存成二进制块，每一行对应该关键点的外观。数据类型和维度取决于提取器：
+
+- **SIFT**：``uint8``，128 维（每个特征 128 字节）。
+- **ALIKED**：``float32``，128 维（每个特征 512 字节）。
+- **LOMA_B**：``float32``，256 维（每个特征 1024 字节）。
+- **LOMA_B128**：``float32``，128 维（每个特征 512 字节）。
+
+descriptors 表的 ``cols`` 列是每行描述子的字节数。``uint8`` 时等于维度，
+``float32`` 时等于 ``4 * 维度``\。
+
+两张表的 ``rows`` 是该图像检测到的特征数，``rows=0`` 表示没有特征。
+做特征匹配和几何验证时，每张图像都要有对应的关键点和描述子记录。
+只有带快速空间验证的词袋匹配才需要有意义的局部特征几何，
+也就是至少要有 X 和 Y，其余关键点列可以填 0。重建流程的其余部分只用关键点位置。
+
+
+匹配与双视图几何
 ----------------
 
-The relation between rigs and sensors (cameras, etc.) is 1-to-N with one sensor
-being chosen as the reference sensor to define the origin of the rig. Each sensor
-must only be part of one rig.
-
-
-Rigs and Frames
----------------
-
-The relation between rigs and frames is 1-to-N, where a frame defines a specific
-instance of the rig with all or a subset of sensors exposed at the same time.
-
-
-Cameras and Images
-------------------
-
-The relation between cameras and images is 1-to-N. This has important
-implications for Structure-from-Motion, since one camera shares the same
-intrinsic parameters (focal length, principal point, distortion, etc.), while
-every image has separate extrinsic parameters (orientation and location).
-
-The intrinsic parameters of cameras are stored as contiguous binary blobs in
-``float64``, ordered as specified in ``src/colmap/sensor/models.h``. COLMAP only
-uses cameras that are referenced by images, all other cameras are ignored.
-
-The ``name`` column in the images table is the unique relative path in the image
-folder. As such, the database file and image folder can be moved to different
-locations, as long as the relative folder structure is preserved.
-
-When manually inserting images and cameras into the database, make sure
-that all identifiers are positive and non-zero, i.e. ``image_id > 0``
-and ``camera_id > 0``.
-
-
-Keypoints and Descriptors
--------------------------
-
-The detected keypoints are stored as row-major ``float32`` binary blobs, where the
-first two columns are the X and Y locations in the image, respectively. COLMAP
-uses the convention that the upper left image corner has coordinate ``(0, 0)`` and
-the center of the upper left most pixel has coordinate ``(0.5, 0.5)``. If the
-keypoints have 4 columns, then the feature geometry is a similarity and the
-third column is the scale and the fourth column the orientation of the feature
-(according to SIFT conventions). If the keypoints have 6 columns, then the
-feature geometry is an affinity and the last 4 columns encode its affine shape
-(see ``src/colmap/feature/types.h`` for details).
-
-The extracted descriptors are stored as row-major binary blobs, where each row
-describes the feature appearance of the corresponding entry in the keypoints
-table. The data type and dimensionality depend on the feature extractor:
-
-- **SIFT**: ``uint8`` descriptors with 128 dimensions (128 bytes per feature).
-- **ALIKED**: ``float32`` descriptors with 128 dimensions (512 bytes per feature).
-- **LOMA_B**: ``float32`` descriptors with 256 dimensions (1024 bytes per
-  feature).
-- **LOMA_B128**: ``float32`` descriptors with 128 dimensions (512 bytes per
-  feature).
-
-The ``cols`` column in the descriptors table specifies the number of bytes per
-descriptor row. For ``uint8`` descriptors, this equals the descriptor dimension.
-For ``float32`` descriptors, this equals ``4 * dimension``.
-
-In both tables, the ``rows`` table specifies the number of detected features per
-image, while ``rows=0`` means that an image has no features. For feature matching
-and geometric verification, every image must have a corresponding keypoints and
-descriptors entry. Note that only vocabulary tree matching with fast spatial
-verification requires meaningful values for the local feature geometry, i.e.,
-only X and Y must be provided and the other keypoint columns can be set to zero.
-The rest of the reconstruction pipeline only uses the keypoint locations.
-
-
-Matches and two-view geometries
--------------------------------
-
-Feature matching stores its output in the ``matches`` table and geometric
-verification in the ``two_view_geometries`` table. COLMAP only uses the data in
-``two_view_geometries`` for reconstruction. Every entry in the two tables stores
-the feature matches between two unique images, where the ``pair_id`` is the
-row-major, linear index in the upper-triangular match matrix, generated as
-follows::
+特征匹配的结果在 ``matches`` 表，几何验证的结果在 ``two_view_geometries`` 表。
+重建只用 ``two_view_geometries``\。两条记录都表示两张不同图像之间的特征匹配。
+``pair_id`` 是上三角匹配矩阵的行主序线性下标，生成方式如下::
 
     def image_ids_to_pair_id(image_id1, image_id2):
         if image_id1 > image_id2:
@@ -112,23 +86,18 @@ follows::
         else:
             return 2147483647 * image_id1 + image_id2
 
-and image identifiers can be uniquely determined from the ``pair_id`` as::
+从 ``pair_id`` 可以唯一还原图像标识::
 
     def pair_id_to_image_ids(pair_id):
         image_id2 = pair_id % 2147483647
         image_id1 = (pair_id - image_id2) / 2147483647
         return image_id1, image_id2
 
-The ``pair_id`` enables efficient database queries, as the matches tables may
-contain several hundred millions of entries. This scheme limits the maximum
-number of images in a database to 2147483647 (maximum value of signed 32-bit
-integers), i.e. ``image_id`` must be smaller than 2147483647.
+``pair_id`` 让查询更高效，因为匹配表可能有数亿行。这个编码把数据库中的图像数上限定为
+2147483647（有符号 32 位整数的最大值），即 ``image_id`` 必须小于 2147483647。
 
-The binary blobs in the matches tables are row-major ``uint32`` matrices, where
-the left column are zero-based indices into the features of ``image_id1`` and the
-second column into the features of ``image_id2``. The column ``cols`` must be 2 and
-the ``rows`` column specifies the number of feature matches.
+匹配表里的二进制块是行主序 ``uint32`` 矩阵。左列是 ``image_id1`` 特征的从 0 开始的下标，
+右列是 ``image_id2`` 的下标。``cols`` 必须为 2，``rows`` 是匹配条数。
 
-The F, E, H blobs in the ``two_view_geometries`` table are stored as 3x3 matrices
-in row-major ``float64`` format. The meaning of the ``config`` values are documented
-in the ``src/colmap/estimators/two_view_geometry.h`` source file.
+``two_view_geometries`` 表中的 F、E、H 以 3×3、行主序 ``float64`` 存储。
+``config`` 的含义见 ``src/colmap/estimators/two_view_geometry.h``\。

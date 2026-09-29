@@ -1,7 +1,7 @@
 .. _pycolmap/cost_functions:
 
-Cost Functions
-==============
+代价函数
+========
 
 .. automodule:: pycolmap.cost_functions
    :members:

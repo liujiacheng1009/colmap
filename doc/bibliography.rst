@@ -1,5 +1,5 @@
-Bibliography
-============
+参考文献
+========
 
 .. [schoenberger_thesis] Johannes L. Schönberger. "Robust Methods for Accurate
    and Efficient 3D Modeling from Unstructured Imagery." ETH Zürich, 2018.

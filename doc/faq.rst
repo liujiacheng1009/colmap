@@ -1,170 +1,92 @@
-Frequently Asked Questions
-==========================
+常见问题
+========
 
-Adjusting the options for different reconstruction scenarios and output quality
--------------------------------------------------------------------------------
+针对不同重建场景与输出质量调整选项
+----------------------------------
 
-COLMAP provides many options that can be tuned for different reconstruction
-scenarios and to trade off accuracy and completeness versus efficiency. The
-default options are set for medium to high quality reconstruction of
-unstructured input data. There are several presets for different scenarios and
-quality levels, which can be set in the GUI as ``Extras > Set options for ...``.
-To use these presets from the command-line, you can save the current set of
-options as ``File > Save project`` after choosing the presets. The resulting
-project file can be opened with a text editor to view the different options.
-Alternatively, you can generate the project file also from the command-line
-by running ``colmap project_generator``.
+COLMAP 提供了许多选项，可针对不同重建场景进行调优，并在精度、完整性与效率之间权衡。默认选项面向中等至高质量的无结构输入数据重建。针对不同场景与质量等级有若干预设，可在 GUI 中通过 ``Extras > Set options for ...`` 设置。若要从命令行使用这些预设，可在选择预设后通过 ``File > Save project`` 保存当前选项集。生成的项目文件可用文本编辑器打开以查看各项选项。也可以通过运行 ``colmap project_generator`` 从命令行生成项目文件。
 
 
-Extending COLMAP
-----------------
+扩展 COLMAP
+-----------
 
-If you need to simply analyze the produced sparse or dense reconstructions from
-COLMAP, you can load the sparse models using pycolmap in Python.
+若只需分析 COLMAP 生成的稀疏或稠密重建结果，可在 Python 中使用 pycolmap 加载稀疏模型。
 
-If you want to write a C/C++ executable that builds on top of COLMAP, there are
-two possible approaches. First, the COLMAP headers and library are installed
-to the ``CMAKE_INSTALL_PREFIX`` by default. Compiling against COLMAP as a
-library is described :ref:`here <installation-library>`. Alternatively, you can
-start from the ``src/colmap/tools/example.cc`` code template and implement the desired
-functionality directly as a new binary within COLMAP.
+若要编写基于 COLMAP 的 C/C++ 可执行程序，有两种可行方式。其一，COLMAP 的头文件与库默认会安装到 ``CMAKE_INSTALL_PREFIX``\。将 COLMAP 作为库进行编译时，打开 ``BUILD_SHARED_LIBS`` 并安装到 ``CMAKE_INSTALL_PREFIX``\。也可以从 ``src/colmap/tools/example.cc`` 代码模板出发，直接在 COLMAP 内实现所需功能并作为新的二进制程序。
 
 
-Choosing between SIFT, ALIKED, and LoMa features
-------------------------------------------------
+在 SIFT、ALIKED 与 LoMa 特征之间选择
+------------------------------------
 
-COLMAP supports three feature extraction algorithms: SIFT (default), ALIKED,
-and LoMa (the latter two require ONNX support). Here are some guidelines for
-choosing between them:
+COLMAP 支持三种特征提取算法：SIFT（默认）、ALIKED 与 LoMa（后两者需要 ONNX 支持）。以下是一些选择建议：
 
-- **SIFT** is the most widely tested and robust choice. It works well for
-  scenarios with moderate to high view overlap, sufficient scene texture,
-  and captured under similar illumination conditions. It supports both GPU
-  and CPU extraction.
+- **SIFT** 是经过最广泛验证、最稳健的选择。适用于视角重叠适中到较高、场景纹理充足、光照条件相近的场景。同时支持 GPU 与 CPU 提取。
 
-- **ALIKED** is a learned feature extractor that can produce more repeatable
-  features in some cases, particularly for scenes with limited view overlap,
-  little scene texture, and drastic illumination changes. It requires ONNX
-  Runtime at build time (``-DONNX_ENABLED=ON``).
+- **ALIKED** 是一种学习型特征提取器，在某些情况下可产生更具可重复性的特征，尤其适合视角重叠有限、场景纹理较少以及光照变化剧烈的场景。构建时需要 ONNX Runtime（``-DONNX_ENABLED=ON``）。
 
-- **LoMa** is a learned feature extractor targeting the same difficult
-  scenarios as ALIKED, paired with dedicated matchers that trade inference
-  cost for matching quality. It also requires ONNX Runtime at build time.
+- **LoMa** 是一种学习型特征提取器，面向与 ALIKED 相同的困难场景，并配合专用匹配器，以推理开销换取匹配质量。构建时同样需要 ONNX Runtime。
 
-SIFT and ALIKED support brute-force matching as well as LightGlue neural
-network-based matching. LightGlue typically produces higher inlier ratios,
-especially for image pairs with large viewpoint or illumination changes, but
-requires ONNX support. LoMa descriptors are matched either brute-force or with
-one of the dedicated LoMa matchers. See
-:ref:`Feature Extraction and Matching <features>` for details on available
-options.
+SIFT 与 ALIKED 支持暴力匹配以及基于神经网络的 LightGlue 匹配。LightGlue 通常能得到更高的内点比例，尤其在视点或光照变化较大的图像对上，但需要 ONNX 支持。LoMa 描述子可通过暴力匹配或专用 LoMa 匹配器之一进行匹配。有关可用选项的详细信息，请参见 :ref:`Feature Extraction and Matching <features>`\。
 
-Do not mix different feature types (e.g., SIFT and ALIKED) in the same
-database, as the descriptors are incompatible.
+请勿在同一数据库中混用不同特征类型（例如 SIFT 与 ALIKED），因为描述子不兼容。
 
 
 .. _faq-choosing-camera-model:
 
-Choosing the right camera model
--------------------------------
+选择合适的相机模型
+------------------
 
-COLMAP supports many camera models with varying numbers of parameters (see
-:doc:`cameras` for the full list). Choosing the right model depends on your
-lens type and reconstruction requirements:
+COLMAP 支持多种参数数量不同的相机模型（完整列表见 :doc:`cameras`）。选择合适的模型取决于镜头类型与重建需求：
 
-- **SIMPLE_RADIAL** (default): A good starting point for most standard cameras.
-  Models a single focal length, principal point, and one radial distortion
-  parameter.
+- **SIMPLE_RADIAL**\（默认）：大多数标准相机的良好起点。对单个焦距、主点以及一个径向畸变参数建模。
 
-- **PINHOLE**: Use if your images have negligible lens distortion (e.g.,
-  already undistorted images or high-quality industrial lenses).
+- **PINHOLE**：适用于镜头畸变可忽略的图像（例如已去畸变的图像或高质量工业镜头）。
 
-- **OPENCV**: A good choice for wider-angle lenses with moderate distortion.
-  Models 2 focal lengths, principal point, and 4 distortion parameters (2 radial
-  + 2 tangential).
+- **OPENCV**：适用于具有中等畸变的广角镜头。对 2 个焦距、主点以及 4 个畸变参数（2 个径向 + 2 个切向）建模。
 
-- **SIMPLE_RADIAL_FISHEYE** or **OPENCV_FISHEYE**: Use for fisheye lenses with
-  a field of view significantly larger than 120 degrees.
+- **SIMPLE_RADIAL_FISHEYE** 或 **OPENCV_FISHEYE**：适用于视场角明显大于 120 度的鱼眼镜头。
 
-- **FULL_OPENCV**: Use only when you have many images sharing intrinsics
-  and need to model complex distortion patterns. With 12 parameters, this model
-  requires a large number of observations to converge reliably.
+- **FULL_OPENCV**：仅在有大量图像共享内参、且需要建模复杂畸变模式时使用。该模型有 12 个参数，需要大量观测才能可靠收敛。
 
-As a rule of thumb, use the simplest model that adequately describes your lens.
-Overly complex models with many parameters can lead to degenerate or overfitted
-calibration, especially when few images share intrinsics. If in doubt, start
-with ``SIMPLE_RADIAL`` and inspect the reprojection errors in the model
-statistics.
+经验法则是使用能充分描述镜头的最简单模型。参数过多的过于复杂模型可能导致退化或过拟合的标定，尤其在共享内参的图像较少时。若不确定，可从 ``SIMPLE_RADIAL`` 开始，并在模型统计信息中检查重投影误差。
 
 
-Using calibration from OpenCV, Kalibr, or other tools
------------------------------------------------------
+使用来自 OpenCV、Kalibr 或其他工具的标定
+----------------------------------------
 
-If you already calibrated your camera with an external tool such as OpenCV or
-Kalibr, you can reuse those intrinsics in COLMAP (see :ref:`Fix intrinsics
-<faq-fix-intrinsics>` to keep them constant during reconstruction). Two
-conventions have to be matched first.
+若已用 OpenCV 或 Kalibr 等外部工具标定相机，可在 COLMAP 中复用这些内参（参见 :ref:`Fix intrinsics
+<faq-fix-intrinsics>` 以在重建期间保持其不变）。首先需要统一两种约定。
 
-**Pixel coordinate convention.** COLMAP places the origin at the top-left
-*corner* of the image, so the center of the top-left pixel is at ``(0.5, 0.5)``
-and a centered principal point is ``(width / 2, height / 2)``. OpenCV and Kalibr
-place integer coordinates at pixel *centers*, so their centered principal point
-is ``((width - 1) / 2, (height - 1) / 2)``. To convert a principal point from
-OpenCV/Kalibr to COLMAP, add ``0.5`` to both ``cx`` and ``cy``::
+**像素坐标约定。** COLMAP 将原点置于图像左上角的 *角点*，因此左上角像素中心为 ``(0.5, 0.5)``，居中主点为 ``(width / 2, height / 2)``\。OpenCV 与 Kalibr 将整数坐标放在像素 *中心*，因此其居中主点为 ``((width - 1) / 2, (height - 1) / 2)``\。将主点从 OpenCV/Kalibr 转换到 COLMAP 时，对 ``cx`` 与 ``cy`` 各加 ``0.5``::
 
     cx_colmap = cx_opencv + 0.5
     cy_colmap = cy_opencv + 0.5
 
-For example, an OpenCV calibration of an 800×600 image with a centered principal
-point ``(399.5, 299.5)`` becomes ``(400.0, 300.0)`` in COLMAP. The focal lengths
-``fx``, ``fy`` and the distortion coefficients are unaffected by this shift.
+例如，一张 800×600 图像在 OpenCV 中的居中主点 ``(399.5, 299.5)`` 在 COLMAP 中变为 ``(400.0, 300.0)``\。焦距 ``fx``、``fy`` 以及畸变系数不受该偏移影响。
 
-**Distortion parameter order.** COLMAP's ``OPENCV`` model uses the same
-``k1, k2, p1, p2`` distortion parameters as OpenCV, and ``FULL_OPENCV``
-additionally uses ``k3, k4, k5, k6``, in that order (see :doc:`cameras`). A
-camera line in ``cameras.txt`` for the example above is therefore::
+**畸变参数顺序。** COLMAP 的 ``OPENCV`` 模型使用与 OpenCV 相同的 ``k1, k2, p1, p2`` 畸变参数，``FULL_OPENCV`` 额外按该顺序使用 ``k3, k4, k5, k6``\（见 :doc:`cameras`）。因此上述示例在 ``cameras.txt`` 中的相机行为::
 
     1 OPENCV 800 600 fx fy 400.0 300.0 k1 k2 p1 p2
 
 
-Choosing between incremental, global, and hierarchical SfM
-----------------------------------------------------------
+在增量、全局与分层 SfM 之间选择
+-------------------------------
 
-COLMAP offers three SfM pipelines:
+COLMAP 提供三种 SfM 流水线：
 
-- **Incremental mapper** (``mapper``, default): Reconstructs the scene by
-  incrementally adding one image at a time. This is the most robust and
-  well-tested pipeline, but can become slow for large image collections, where
-  repeated bundle adjustment is often the bottleneck. This can be accelerated
-  substantially with the GPU-based Caspar backend (see
-  :ref:`Speedup bundle adjustment <speedup-bundle-adjustment>`).
+- **Incremental mapper**\（``mapper``，默认）：通过每次增量添加一张图像来重建场景。这是最稳健、经过最充分验证的流水线，但对大型图像集可能变慢，此时反复的光束法平差往往是瓶颈。可使用基于 GPU 的 Caspar 后端显著加速（参见 :ref:`Speedup bundle adjustment <speedup-bundle-adjustment>`）。
 
-- **Global mapper** (``global_mapper``): Solves for all camera poses
-  simultaneously using rotation averaging and global positioning. This can be
-  faster for large datasets with good matching graphs, but may be less robust
-  to outliers in the matching. The global mapper depends on good focal length
-  priors. If reliable intrinsics are not available, run
-  ``view_graph_calibrator`` before ``global_mapper`` to estimate them from the
-  view graph (optional but recommended to improve the quality of
-  global SfM). Note that ``view_graph_calibrator`` modifies the database
-  in-place, so it is recommended to work on a copy.
+- **Global mapper**\（``global_mapper``）：通过旋转平均与全局定位同时求解所有相机位姿。对匹配图良好的大型数据集可能更快，但对匹配中的外点可能不够稳健。全局 mapper 依赖良好的焦距先验。若没有可靠的内参，建议在 ``global_mapper`` 之前运行 ``view_graph_calibrator``，从视图图估计内参（可选，但建议用于提高全局 SfM 质量）。注意 ``view_graph_calibrator`` 会就地修改数据库，因此建议在副本上操作。
 
-- **Hierarchical mapper** (``hierarchical_mapper``): Partitions the scene into
-  overlapping sub-models and reconstructs each independently, then merges them.
-  This is useful for very large-scale datasets where the incremental approach
-  becomes too slow but is usually less robust than the other two pipelines.
+- **Hierarchical mapper**\（``hierarchical_mapper``）：将场景划分为重叠的子模型并分别独立重建，再进行合并。适用于增量方法过慢的超大规模数据集，但通常比另外两种流水线稳健性更低。
 
-All three can also be selected via the ``automatic_reconstructor`` using
-``--mapper INCREMENTAL``, ``--mapper GLOBAL``, or ``--mapper HIERARCHICAL``.
+三者也可通过 ``automatic_reconstructor`` 选择，使用 ``--mapper INCREMENTAL``、``--mapper GLOBAL`` 或 ``--mapper HIERARCHICAL``\。
 
 
-Reconstruction with pose priors (GPS)
--------------------------------------
+使用位姿先验（GPS）进行重建
+---------------------------
 
-If your images have GPS information in their EXIF metadata, COLMAP
-automatically extracts and stores it as pose priors in the database during
-feature extraction. These priors can then be used during reconstruction with
-the ``pose_prior_mapper``::
+若图像的 EXIF 元数据中包含 GPS 信息，COLMAP 会在特征提取期间自动提取并将其作为位姿先验存入数据库。随后可在重建时通过 ``pose_prior_mapper`` 使用这些先验::
 
     colmap feature_extractor \
         --database_path $PROJECT_PATH/database.db \
@@ -178,33 +100,23 @@ the ``pose_prior_mapper``::
         --image_path $PROJECT_PATH/images \
         --output_path $PROJECT_PATH/sparse
 
-The ``pose_prior_mapper`` is essentially the incremental mapper with prior
-position constraints enabled. You can override the priors covariance (uncertainty)
-using ``--overwrite_priors_covariance``.  The new covariance will be built based 
-on the values of ``--prior_position_std_x``, ``--prior_position_std_y``, and
-``--prior_position_std_z`` (default: 1.0 meter each).
+``pose_prior_mapper`` 本质上是启用了先验位置约束的增量 mapper。可使用 ``--overwrite_priors_covariance`` 覆盖先验协方差（不确定性）。新的协方差将根据 ``--prior_position_std_x``、``--prior_position_std_y`` 与 ``--prior_position_std_z`` 的值构建（默认：各 1.0 米）。
 
-For geo-registration of an already reconstructed model (without using priors
-during mapping), see the `Geo-registration`_ section.
+若要对已重建模型进行地理配准（映射时未使用先验），请参见 :ref:`地理配准 <geo-registration>` 一节。
 
 
 .. _faq-share-intrinsics:
 
-Share intrinsics
+共享内参
+--------
+
+COLMAP 支持任意图像组与相机模型共享内参。若图像引用同一相机（由数据库中的 ``camera_id`` 属性指定），则它们共享相同内参。可在数据库管理工具中添加新相机并设置共享内参。更多信息请参见 :ref:`Database Management <database-management>`\。
+
+
+设置已知相机内参
 ----------------
 
-COLMAP supports shared intrinsics for arbitrary groups of images and camera
-models. Images share the same intrinsics, if they refer to the same camera, as
-specified by the ``camera_id`` property in the database. You can add new cameras
-and set shared intrinsics in the database management tool. Please, refer to
-:ref:`Database Management <database-management>` for more information.
-
-
-Set known camera intrinsics
----------------------------
-
-If the camera calibration is known a priori, the recommended way to provide it
-is during feature extraction using the ``ImageReader`` options::
+若相机标定先验已知，推荐在特征提取时通过 ``ImageReader`` 选项提供::
 
     colmap feature_extractor \
         --database_path $PROJECT_PATH/database.db \
@@ -213,16 +125,9 @@ is during feature extraction using the ``ImageReader`` options::
         --ImageReader.camera_model OPENCV \
         --ImageReader.camera_params "fx,fy,cx,cy,k1,k2,p1,p2"
 
-The parameters must be provided as a comma-separated list in the order defined
-by the chosen camera model (see :doc:`cameras`). In the GUI, the equivalent
-settings can be found under ``Processing > Feature extraction > Custom
-parameters``. Use ``--ImageReader.single_camera 1`` if all images were captured
-by the same physical camera with identical settings, so that they share one
-camera in the database (see `Share intrinsics`_).
+参数必须按所选相机模型定义的顺序以逗号分隔列表提供（见 :doc:`cameras`）。在 GUI 中，等效设置位于 ``Processing > Feature extraction > Custom parameters``。若所有图像由同一物理相机以相同设置拍摄，从而在数据库中共享一个相机，请使用 ``--ImageReader.single_camera 1``\（参见 :ref:`共享内参 <faq-share-intrinsics>`）。
 
-To modify the intrinsics of an existing database, do not edit the SQLite tables
-by hand (the parameters are stored as binary blobs of doubles), but use
-pycolmap's database API instead::
+要修改已有数据库中的内参，请勿手工编辑 SQLite 表（参数以双精度浮点数的二进制 blob 存储），而应使用 pycolmap 的数据库 API::
 
     import pycolmap
     with pycolmap.Database.open("path/to/database.db") as db:
@@ -231,80 +136,48 @@ pycolmap's database API instead::
         camera.has_prior_focal_length = True
         db.update_camera(camera)
 
-Note that the provided parameters are still refined during bundle adjustment by
-default. To keep them fixed during the reconstruction, see
-:ref:`Fix intrinsics <faq-fix-intrinsics>`.
+注意：默认情况下，提供的参数仍会在光束法平差中被优化。若要在重建期间保持固定，请参见 :ref:`Fix intrinsics <faq-fix-intrinsics>`\。
 
 
 .. _faq-fix-intrinsics:
 
-Fix intrinsics
---------------
+固定内参
+--------
 
-By default, COLMAP tries to refine the intrinsic camera parameters (except
-principal point) automatically during the reconstruction. Usually, if there are
-enough images in the dataset and you share the intrinsics between multiple
-images, the estimated intrinsic camera parameters in SfM should be better than
-parameters manually obtained with a calibration pattern.
+默认情况下，COLMAP 会在重建过程中自动尝试优化相机内参（主点除外）。通常，若数据集中图像足够多且在多张图像间共享内参，SfM 估计的相机内参应优于用标定板手动获得的参数。
 
-However, sometimes COLMAP's self-calibration routine might converge in
-degenerate parameters, especially in case of the more complex camera models with
-many distortion parameters. If you know the calibration parameters a priori, you
-can fix different parameter groups during the reconstruction. Choose
-``Reconstruction > Reconstruction options > Bundle Adj. > refine_*`` and check
-which parameter group to refine or to keep constant. Even if you keep the
-parameters constant during the reconstruction, you can refine the parameters in
-a final global bundle adjustment by setting ``Reconstruction > Bundle adj.
-options > refine_*`` and then running ``Reconstruction > Bundle adjustment``.
+然而，COLMAP 的自标定例程有时可能收敛到退化参数，尤其是在具有许多畸变参数的更复杂相机模型中。若先验已知标定参数，可在重建期间固定不同的参数组。选择 ``Reconstruction > Reconstruction options > Bundle Adj. > refine_*``，并勾选要优化或保持不变的参数组。即使在重建期间保持参数不变，仍可在最终全局光束法平差中通过设置 ``Reconstruction > Bundle adj.
+options > refine_*``，然后运行 ``Reconstruction > Bundle adjustment`` 来优化这些参数。
 
 
-Principal point refinement
---------------------------
+主点优化
+--------
 
-By default, COLMAP keeps the principal point constant during the reconstruction,
-as principal point estimation is an ill-posed problem in general. Once all
-images are reconstructed, the problem is most often constrained enough that you
-can try to refine the principal point in global bundle adjustment, especially
-when sharing intrinsic parameters between multiple images. Please, refer to
-:ref:`Fix intrinsics <faq-fix-intrinsics>` for more information.
+默认情况下，COLMAP 在重建期间保持主点不变，因为主点估计在一般情况下是病态问题。一旦所有图像都已重建，问题通常已足够约束，可以尝试在全局光束法平差中优化主点，尤其是在多张图像间共享内参时。更多信息请参见 :ref:`Fix intrinsics <faq-fix-intrinsics>`\。
 
 
-Increase number of matches / sparse 3D points
----------------------------------------------
+增加匹配数量 / 稀疏三维点数量
+-----------------------------
 
-To increase the number of matches, you should use the more discriminative
-DSP-SIFT features instead of plain SIFT and also estimate the affine feature
-shape using the options: ``--SiftExtraction.estimate_affine_shape=true`` and
-``--SiftExtraction.domain_size_pooling=true``. In addition, you should enable
-guided feature matching using: ``--FeatureMatching.guided_matching=true``.
+要增加匹配数量，应使用判别力更强的 DSP-SIFT 特征而非普通 SIFT，并使用选项 ``--SiftExtraction.estimate_affine_shape=true`` 与 ``--SiftExtraction.domain_size_pooling=true`` 估计仿射特征形状。此外，应启用引导特征匹配：``--FeatureMatching.guided_matching=true``\。
 
-By default, COLMAP ignores two-view feature tracks in triangulation, resulting
-in fewer 3D points than possible. Triangulation of two-view tracks can in rare
-cases improve the stability of sparse image collections by providing additional
-constraints in bundle adjustment. To also triangulate two-view tracks, unselect
-the option ``Reconstruction > Reconstruction options > Triangulation >
-ignore_two_view_tracks``. If your images are taken from far distance with
-respect to the scene, you can try to reduce the minimum triangulation angle.
+默认情况下，COLMAP 在三角化时忽略双视图特征轨迹，因此三维点数量少于可能达到的数量。在少数情况下，对双视图轨迹进行三角化可通过在光束法平差中提供额外约束来改善稀疏图像集的稳定性。若也要三角化双视图轨迹，请取消勾选选项 ``Reconstruction > Reconstruction options > Triangulation >
+ignore_two_view_tracks``。若图像相对场景拍摄距离较远，可尝试减小最小三角化角度。
 
 
-Reconstruct sparse/dense model from known camera poses
-------------------------------------------------------
+从已知相机位姿重建稀疏/稠密模型
+-------------------------------
 
-If the camera poses are known and you want to reconstruct a sparse or dense
-model of the scene, you must first manually construct a sparse model by creating
-a ``cameras.txt``, ``points3D.txt``, and ``images.txt`` under a new folder::
+若相机位姿已知，并希望重建场景的稀疏或稠密模型，必须先通过在新文件夹下创建 ``cameras.txt``、``points3D.txt`` 与 ``images.txt`` 来手动构建稀疏模型::
 
     +── path/to/manually/created/sparse/model
     │   +── cameras.txt
     │   +── images.txt
     │   +── points3D.txt
 
-The ``points3D.txt`` file should be empty while every other line in the ``images.txt``
-should also be empty, since the sparse features are computed, as described below. You can
-refer to :ref:`this article <output-format>` for more information about the structure of
-a sparse model.
+``points3D.txt`` 文件应为空，且 ``images.txt`` 中每隔一行也应为空，因为稀疏特征将按如下所述计算。有关稀疏模型结构的更多信息，可参见 :ref:`this article <output-format>`\。
 
-Example of images.txt::
+images.txt 示例::
 
     1 0.695104 0.718385 -0.024566 0.012285 -0.046895 0.005253 -0.199664 1 image0001.png
     # Make sure every other line is left empty
@@ -314,24 +187,15 @@ Example of images.txt::
 
     4 0.698777 0.714625 -0.023996 0.021129 -0.048184 0.004529 -0.313427 2 image0004.png
 
-Each image above must have the same ``image_id`` (first column) as in the database (next step).
-This database can be inspected either in the GUI (under ``Database management > Processing``),
-or, one can create a reconstruction with colmap and later export  it as text in order to see
-the images.txt file it creates.
+上面每张图像的 ``image_id``\（第一列）必须与数据库中的相同（下一步）。可在 GUI 中检查该数据库（位于 ``Database management > Processing``），或者先用 colmap 创建一次重建，再导出为文本以查看其生成的 images.txt 文件。
 
-To reconstruct a sparse map, you first have to recompute features from the
-images of the known camera poses as follows::
+要重建稀疏地图，首先需对已知相机位姿对应的图像重新计算特征，如下所示::
 
     colmap feature_extractor \
         --database_path $PROJECT_PATH/database.db \
         --image_path $PROJECT_PATH/images
 
-If your known camera intrinsics have large distortion coefficients, you should
-now manually copy the parameters from your ``cameras.txt`` to the database, such
-that the matcher can leverage the intrinsics. Modifying the database is possible
-in many ways, but an easy option is to use pycolmap's database API.
-Otherwise, you can skip this step and
-simply continue as follows::
+若已知相机内参具有较大的畸变系数，此时应手动将参数从 ``cameras.txt`` 复制到数据库，以便匹配器利用这些内参。修改数据库的方式有很多，一种简便方法是使用 pycolmap 的数据库 API。否则，可跳过此步骤并按如下继续::
 
     colmap exhaustive_matcher \ # or alternatively any other matcher
         --database_path $PROJECT_PATH/database.db
@@ -342,9 +206,7 @@ simply continue as follows::
         --input_path path/to/manually/created/sparse/model \
         --output_path path/to/triangulated/sparse/model
 
-Note that the sparse reconstruction step is not necessary in order to compute
-a dense model from known camera poses. Assuming you computed a sparse model
-from the known camera poses, you can compute a dense model as follows::
+注意：从已知相机位姿计算稠密模型并不需要稀疏重建步骤。假设已从已知相机位姿计算出稀疏模型，可按如下方式计算稠密模型::
 
     colmap image_undistorter \
         --image_path $PROJECT_PATH/images \
@@ -358,20 +220,16 @@ from the known camera poses, you can compute a dense model as follows::
         --workspace_path path/to/dense/workspace \
         --output_path path/to/dense/workspace/fused.ply
 
-Alternatively, you can also produce a dense model without a sparse model as::
+也可以不经过稀疏模型直接生成稠密模型，如下所示::
 
     colmap image_undistorter \
         --image_path $PROJECT_PATH/images \
         --input_path path/to/manually/created/sparse/model \
         --output_path path/to/dense/workspace
 
-Since the sparse point cloud is used to automatically select neighboring images
-during the dense stereo stage, you have to manually specify the source images,
-as described :ref:`here <faq-dense-manual-source>`. The dense stereo stage
-now also requires a manual specification of the depth range.
+由于稠密立体阶段会使用稀疏点云自动选择邻域图像，必须手动指定源图像，如 :ref:`here <faq-dense-manual-source>` 所述。稠密立体阶段此时也需要手动指定深度范围。
 
-Finally, in this case, fusion will fail to successfully match points if min_num_pixels is
-left at the default (greater than 1). So also set that parameter, as below::
+最后，在这种情况下，若 min_num_pixels 保持默认值（大于 1），融合将无法成功匹配点。因此还需如下设置该参数::
 
     colmap patch_match_stereo \
         --workspace_path path/to/dense/workspace \
@@ -386,54 +244,40 @@ left at the default (greater than 1). So also set that parameter, as below::
 
 .. _faq-merge-models:
 
-Merge disconnected models
--------------------------
+合并断开的模型
+--------------
 
-Sometimes COLMAP fails to reconstruct all images into the same model and hence
-produces multiple sub-models. If those sub-models have common registered images,
-they can be merged into a single model as post-processing step::
+有时 COLMAP 无法将所有图像重建到同一模型中，从而产生多个子模型。若这些子模型具有共同的已注册图像，可在后处理步骤中将它们合并为单个模型::
 
     colmap model_merger \
         --input_path1 /path/to/sub-model1 \
         --input_path2 /path/to/sub-model2 \
         --output_path /path/to/merged-model
 
-To improve the quality of the alignment between the two sub-models, it is
-recommended to run another global bundle adjustment after the merge::
+为提高两个子模型之间的对齐质量，建议在合并后再次运行全局光束法平差::
 
     colmap bundle_adjuster \
         --input_path /path/to/merged-model \
         --output_path /path/to/refined-merged-model
 
 
-Geo-registration
-----------------
+.. _geo-registration:
 
-Geo-registration of models is possible by providing the 3D locations for the
-camera centers of a subset or all registered images. The 3D similarity
-transformation between the reconstructed model and the target coordinate frame
-of the geo-registration is determined from these correspondences.
+地理配准
+--------
 
-The geo-registered 3D coordinates can either be extracted from the database
-(tvec_prior field) or from a user specified text file.
-For text-files, the geo-registered 3D coordinates of the camera centers for
-images must be specified with the following format::
+通过对部分或全部已注册图像的相机中心提供三维位置，可对模型进行地理配准。重建模型与地理配准目标坐标系之间的三维相似变换由这些对应关系确定。
+
+地理配准的三维坐标既可从数据库（tvec_prior 字段）提取，也可来自用户指定的文本文件。对于文本文件，图像相机中心的地理配准三维坐标必须按以下格式指定::
 
     image_name1.jpg X1 Y1 Z1
     image_name2.jpg X2 Y2 Z2
     image_name3.jpg X3 Y3 Z3
     ...
 
-The coordinates can be either GPS-based (lat/lon/alt) or cartesian-based (x/y/z).
-In case of GPS coordinates, a conversion will be performed to turn those into
-cartesian coordinates.  The conversion can be done from GPS to ECEF
-(Earth-Centered-Earth-Fixed) or to ENU (East-North-Up) coordinates. If ENU coordinates
-are used, the first image GPS coordinates will define the origin of the ENU frame.
-It is also possible to use ECEF coordinates for alignment and then rotate the aligned
-reconstruction into the ENU plane.
+坐标可以是基于 GPS 的（lat/lon/alt）或基于笛卡尔坐标的（x/y/z）。若为 GPS 坐标，将转换为笛卡尔坐标。转换可将 GPS 转为 ECEF（地心地固）或 ENU（东-北-天）坐标。若使用 ENU 坐标，第一张图像的 GPS 坐标将定义 ENU 坐标系的原点。也可以使用 ECEF 坐标进行对齐，再将对齐后的重建旋转到 ENU 平面。
 
-Note that at least 3 images must be specified to estimate a 3D similarity
-transformation. Then, the model can be geo-registered using::
+注意：估计三维相似变换至少需要指定 3 张图像。然后可使用如下命令对模型进行地理配准::
 
     colmap model_aligner \
         --input_path /path/to/model \
@@ -443,53 +287,37 @@ transformation. Then, the model can be geo-registered using::
         --alignment_type ecef \
         --alignment_max_error 3.0 (where 3.0 is the error threshold to be used in RANSAC)
 
-A 3D similarity transformation will be estimated with a RANSAC estimator to be robust to potential outliers
-in the data. It is required to provide the error threshold to be used in the RANSAC estimator.
+将使用 RANSAC 估计器估计三维相似变换，以对数据中潜在的外点保持稳健。需要提供 RANSAC 估计器使用的误差阈值。
 
-Manhattan world alignment
--------------------------
+曼哈顿世界对齐
+--------------
 
-COLMAP has functionality to align the coordinate axes of a reconstruction using
-a Manhattan world assumption, i.e. COLMAP can automatically determine the
-gravity axis and the major horizontal axis of the Manhattan world through
-vanishing point detection in the images. Please, refer to the
-``model_orientation_aligner`` for more details.
+COLMAP 具备在曼哈顿世界假设下对齐重建坐标轴的功能，即 COLMAP 可通过图像中的消失点检测自动确定重力轴与曼哈顿世界的主水平轴。更多细节请参见 ``model_orientation_aligner``\。
 
 
-Mask image regions
-------------------
+掩膜图像区域
+------------
 
-COLMAP supports masking of keypoints during feature extraction two different ways:
+COLMAP 支持在特征提取期间以两种不同方式对关键点进行掩膜：
 
-1. Passing ``mask_path`` to a folder with image masks. For a given image, the corresponding
-mask must have the same sub-path below this root as the image has below
-``image_path``. The filename must be equal, aside from the added extension
-``.png``. For example, for an image ``image_path/abc/012.jpg``, the mask would
-be ``mask_path/abc/012.jpg.png``.
+1. 将 ``mask_path`` 指向包含图像掩膜的文件夹。对于给定图像，对应掩膜在该根目录下的子路径必须与图像在 ``image_path`` 下的子路径相同。文件名必须相同，仅额外增加扩展名 ``.png``\。例如，对于图像 ``image_path/abc/012.jpg``，掩膜应为 ``mask_path/abc/012.jpg.png``\。
 
-2. Passing ``camera_mask_path`` to a single mask image. This single mask is applied to all images.
+2. 将 ``camera_mask_path`` 指向单张掩膜图像。该单一掩膜将应用于所有图像。
 
-In both cases no features will be extracted in regions,
-where the mask image is black (pixel intensity value 0 in grayscale).
+在这两种情况下，掩膜图像为黑色（灰度像素强度值为 0）的区域都不会提取特征。
 
 
-Image orientation and EXIF
---------------------------
+图像方向与 EXIF
+---------------
 
-COLMAP automatically reads the EXIF orientation tag from images during feature
-extraction. The orientation is converted to a gravity direction vector in sensor
-coordinates, which is stored as part of the pose prior in the database. This
-gravity information is used during feature extraction and matching to improve
-robustness against image rotation. This is crucial for feature extractors/matchers
-with limited orientation invariance, such as ALIKED, LightGlue, and LoMa.
+COLMAP 在特征提取期间会自动读取图像的 EXIF 方向标签。该方向会转换为传感器坐标系中的重力方向向量，并作为位姿先验的一部分存入数据库。该重力信息在特征提取与匹配期间用于提高对图像旋转的稳健性。这对于方向不变性有限的特征提取器/匹配器（如 ALIKED、LightGlue 与 LoMa）至关重要。
 
 
 
-Register/localize new images into an existing reconstruction
-------------------------------------------------------------
+将新图像注册/定位到已有重建中
+-----------------------------
 
-If you have an existing reconstruction of images and want to register/localize
-new images within this reconstruction, you can follow these steps::
+若已有图像重建结果，并希望在该重建中注册/定位新图像，可按以下步骤操作::
 
     colmap feature_extractor \
         --database_path $PROJECT_PATH/database.db \
@@ -509,16 +337,9 @@ new images within this reconstruction, you can follow these steps::
         --input_path /path/to/model-with-new-images \
         --output_path /path/to/model-with-new-images
 
-Note that this first extracts features for the new images, then matches them to
-the existing images in the database, and finally registers them into the model.
-The image list text file contains a list of images to extract and match,
-specified as one image file name per line. The bundle adjustment is optional.
+注意：这首先会为新图像提取特征，然后将其与数据库中的已有图像匹配，最后将它们注册到模型中。图像列表文本文件包含要提取与匹配的图像列表，每行指定一个图像文件名。光束法平差是可选的。
 
-If you need a more accurate image registration with triangulation, then you
-should restart or continue the reconstruction process rather than just
-registering the images to the model. Instead of running the
-``image_registrator``, you should run the ``mapper`` to continue the
-reconstruction process from the existing model::
+若需要更精确的、带三角化的图像注册，则应重新开始或继续重建过程，而不仅仅是将图像注册到模型。不要运行 ``image_registrator``，而应运行 ``mapper``，从已有模型继续重建过程::
 
     colmap mapper \
         --database_path $PROJECT_PATH/database.db \
@@ -526,309 +347,181 @@ reconstruction process from the existing model::
         --input_path /path/to/existing-model \
         --output_path /path/to/model-with-new-images
 
-Or, alternatively, you can start the reconstruction from scratch::
+或者，也可以从头开始重建::
 
     colmap mapper \
         --database_path $PROJECT_PATH/database.db \
         --image_path $PROJECT_PATH/images \
         --output_path /path/to/model-with-new-images
 
-Note that dense reconstruction must be re-run from scratch after running the
-``mapper`` or the ``bundle_adjuster``, as the coordinate frame of the model can
-change during these steps.
+注意：在运行 ``mapper`` 或 ``bundle_adjuster`` 之后，必须从头重新运行稠密重建，因为模型的坐标系在这些步骤中可能会改变。
 
 
-Available functionality without GPU/CUDA
-----------------------------------------
+无 GPU/CUDA 时的可用功能
+------------------------
 
-If you do not have a CUDA-enabled GPU but some other GPU, you can use all COLMAP
-functionality except the dense reconstruction part. However, you can use
-external dense reconstruction software as an alternative, as described in the
-:ref:`Tutorial <dense-reconstruction>`. If you have a GPU with low compute power
-or you want to execute COLMAP on a machine without an attached display and
-without CUDA support, you can run all steps on the CPU by specifying the
-appropriate options (e.g., ``--FeatureExtraction.use_gpu=false`` for the feature
-extraction step). But note that this might result in a significant slow-down of
-the reconstruction pipeline. Please, also note that feature extraction on the
-CPU can consume excessive RAM for large images in the default settings, which
-might require manually reducing the maximum image size using
-``--FeatureExtraction.max_image_size`` and/or setting
-``--SiftExtraction.first_octave 0`` or by manually limiting the number of
-threads using ``--FeatureExtraction.num_threads``.
+若没有支持 CUDA 的 GPU，但有其他 GPU，则可使用 COLMAP 除稠密重建之外的所有功能。不过，可以使用外部稠密重建软件作为替代，如 :ref:`Tutorial <dense-reconstruction>` 所述。若 GPU 计算能力较低，或想在无外接显示器且无 CUDA 支持的机器上运行 COLMAP，可通过指定相应选项在 CPU 上运行所有步骤（例如特征提取步骤使用 ``--FeatureExtraction.use_gpu=false``）。但请注意，这可能导致重建流水线显著变慢。另外请注意，在默认设置下，对大图像进行 CPU 特征提取可能消耗过多 RAM，可能需要使用 ``--FeatureExtraction.max_image_size`` 手动减小最大图像尺寸，和/或设置 ``--SiftExtraction.first_octave 0``，或使用 ``--FeatureExtraction.num_threads`` 手动限制线程数。
 
 
-Multi-GPU support in feature extraction/matching
-------------------------------------------------
+特征提取/匹配中的多 GPU 支持
+----------------------------
 
-You can run feature extraction/matching on multiple GPUs by specifying multiple
-indices for CUDA-enabled GPUs, e.g., ``--FeatureExtraction.gpu_index=0,1,2,3`` and
-``--FeatureMatching.gpu_index=0,1,2,3`` runs the feature extraction/matching on 4
-GPUs in parallel. Note that you can only run one thread per GPU and this
-typically also gives the best performance. By default, COLMAP runs one feature
-extraction/matching thread per CUDA-enabled GPU and this usually gives the best
-performance as compared to running multiple threads on the same GPU.
+可通过为支持 CUDA 的 GPU 指定多个索引，在多个 GPU 上运行特征提取/匹配，例如 ``--FeatureExtraction.gpu_index=0,1,2,3`` 与 ``--FeatureMatching.gpu_index=0,1,2,3`` 可在 4 个 GPU 上并行运行特征提取/匹配。注意每个 GPU 只能运行一个线程，这通常也能获得最佳性能。默认情况下，COLMAP 为每个支持 CUDA 的 GPU 运行一个特征提取/匹配线程，与在同一 GPU 上运行多个线程相比，这通常能获得最佳性能。
 
 
-Feature matching fails due to illegal memory access
----------------------------------------------------
+因非法内存访问导致特征匹配失败
+------------------------------
 
-If you encounter the following error message::
+若遇到以下错误信息::
 
     MultiplyDescriptor: an illegal memory access was encountered
 
-or the following:
+或以下信息：
 
     ERROR: Feature matching failed. This probably caused by insufficient GPU
     memory. Consider reducing the maximum number of features.
 
-during feature matching, your GPU runs out of memory. Try decreasing the option
-``--FeatureMatching.max_num_matches`` until the error disappears. Note that this
-might lead to inferior feature matching results, since the lower-scale input
-features will be clamped in order to fit them into GPU memory. Alternatively,
-you could change to CPU-based feature matching, but this can become very slow,
-or better you buy a GPU with more memory.
+在特征匹配期间出现上述情况，说明 GPU 内存不足。请尝试减小选项 ``--FeatureMatching.max_num_matches``，直到错误消失。注意这可能导致特征匹配结果变差，因为为将特征装入 GPU 内存，较低尺度的输入特征会被截断。也可以改用基于 CPU 的特征匹配，但可能非常慢，或者更好的做法是购买内存更大的 GPU。
 
-The maximum required GPU memory can be approximately estimated using the
-following formula: ``4 * num_matches * num_matches + 4 * num_matches * 256`` for SIFT.
-For example, if you set ``--FeatureMatching.max_num_matches 10000``, the maximum
-required GPU memory will be around 400MB, which are only allocated if one of
-your images actually has that many features.
+所需最大 GPU 内存可近似用以下公式估计：对 SIFT 为 ``4 * num_matches * num_matches + 4 * num_matches * 256``\。例如，若设置 ``--FeatureMatching.max_num_matches 10000``，所需最大 GPU 内存约为 400MB，且仅当某张图像实际具有如此多特征时才会分配。
 
 
 .. _speedup-bundle-adjustment:
 
-Speedup bundle adjustment
--------------------------
+加速光束法平差
+--------------
 
-The following describes practical ways to reduce bundle adjustment runtime.
+以下介绍减少光束法平差运行时间的实用方法。
 
-- **Reduce the problem size**
+- **减小问题规模**
 
-  Limit the number of correspondences so that BA solves a smaller problem:
+  限制对应点数量，使 BA 求解更小的问题：
 
-  - Reduce features by decreasing ``--SiftExtraction.max_image_size`` and/or
-    ``--SiftExtraction.max_num_features``.
-  - Reduce matching pairs (and avoid ``exhaustive_matcher`` when possible) by
-    decreasing ``--SequentialMatching.overlap``,
-    ``--SpatialMatching.max_num_neighbors``, or ``--VocabTreeMatching.num_images``.
-  - Reduce matches by decreasing ``--FeatureMatching.max_num_matches``.
-  - Enable experimental landmark pruning to drop redundant 3D points using
-    ``--Mapper.ba_global_ignore_redundant_points3D 1``.
+  - 通过减小 ``--SiftExtraction.max_image_size`` 和/或 ``--SiftExtraction.max_num_features`` 减少特征。
+  - 通过减小 ``--SequentialMatching.overlap``、``--SpatialMatching.max_num_neighbors`` 或 ``--VocabTreeMatching.num_images`` 减少匹配对（并尽可能避免使用 ``exhaustive_matcher``）。
+  - 通过减小 ``--FeatureMatching.max_num_matches`` 减少匹配。
+  - 使用 ``--Mapper.ba_global_ignore_redundant_points3D 1`` 启用实验性路标剪枝以丢弃冗余三维点。
 
-- **Utilize GPU acceleration**
+- **利用 GPU 加速**
 
-  Enable GPU-based Ceres solvers for bundle adjustment by setting
-  ``--Mapper.ba_use_gpu 1`` for the ``mapper`` and ``--BundleAdjustmentCeres.use_gpu 1``
-  for the standalone ``bundle_adjuster``. Several parameters control when and which
-  GPU solver is used:
+  通过为 ``mapper`` 设置 ``--Mapper.ba_use_gpu 1``，并为独立的 ``bundle_adjuster`` 设置 ``--BundleAdjustmentCeres.use_gpu 1``，启用基于 GPU 的 Ceres 求解器进行光束法平差。若干参数控制何时以及使用哪种 GPU 求解器：
 
-  - The GPU solver is activated only when the number of images exceeds
-    ``--BundleAdjustmentCeres.min_num_images_gpu_solver``.
-  - Select between the direct dense, direct sparse, and iterative sparse GPU solvers
-    using ``--BundleAdjustmentCeres.max_num_images_direct_dense_gpu_solver`` and
-    ``--BundleAdjustmentCeres.max_num_images_direct_sparse_gpu_solver``
+  - 仅当图像数量超过 ``--BundleAdjustmentCeres.min_num_images_gpu_solver`` 时才会激活 GPU 求解器。
+  - 使用 ``--BundleAdjustmentCeres.max_num_images_direct_dense_gpu_solver`` 与 ``--BundleAdjustmentCeres.max_num_images_direct_sparse_gpu_solver`` 在直接稠密、直接稀疏与迭代稀疏 GPU 求解器之间选择
 
-  .. Attention:: COLMAP's official CUDA-enabled binaries are not distributed with
-     ceres[cuda] until Ceres 2.3 is officially released. To use the GPU solvers you
-     must compile Ceres with the CUDA/cuDSS support and link that build to COLMAP.
+  .. Attention:: 在 Ceres 2.3 正式发布之前，COLMAP 官方启用 CUDA 的二进制发行版
+     不附带 ceres[cuda]。要使用 GPU 求解器，必须编译带有 CUDA/cuDSS 支持的 Ceres，
+     并将其链接到 COLMAP。
 
-  **Note:** Low GPU utilization for the Schur-based sparse solver (cuDSS) can occur
-  when the Schur-complement matrix becomes less sparse (i.e., exhibits more fill-in).
-  Typical causes include:
+  **注意：** 当 Schur 补矩阵稀疏性降低（即出现更多填充）时，基于 Schur 的稀疏求解器
+  （cuDSS）可能出现 GPU 利用率偏低。常见原因包括：
 
-  - High image covisibility
-  - Shared camera intrinsics.
+  - 图像共视程度高
+  - 共享相机内参。
 
-- **Use the Caspar GPU bundle adjustment backend**
+- **使用 Caspar GPU 光束法平差后端**
 
-  COLMAP includes Caspar [caspar]_, an experimental GPU-accelerated bundle
-  adjustment backend that can be one to two orders of magnitude faster than the
-  Ceres CUDA solver for medium- to large-scale problems, leading to drastic
-  speedups especially for the incremental mapper. Caspar requires CUDA and is
-  disabled by default; it must be enabled at build time by configuring COLMAP
-  with ``-DCASPAR_ENABLED=ON``.
+  COLMAP 包含 Caspar [caspar]_，一种实验性的 GPU 加速光束法平差后端，对于中等至大规模问题可比 Ceres CUDA 求解器快一到两个数量级，尤其能为增量 mapper 带来显著加速。Caspar 需要 CUDA，默认禁用；必须在构建时通过 ``-DCASPAR_ENABLED=ON`` 配置 COLMAP 来启用。
 
-  Caspar is selected through the bundle adjustment ``backend`` option, which
-  accepts ``CERES`` (default) or ``CASPAR``:
+  Caspar 通过光束法平差的 ``backend`` 选项选择，该选项接受 ``CERES``\（默认）或 ``CASPAR``：
 
-  - Standalone ``bundle_adjuster``: ``--BundleAdjustment.backend CASPAR``.
-  - Incremental ``mapper``: ``--Mapper.ba_local_backend CASPAR`` and/or
-    ``--Mapper.ba_global_backend CASPAR``. The GPU device is selected via
-    ``--Mapper.ba_gpu_index``.
+  - 独立的 ``bundle_adjuster``：``--BundleAdjustment.backend CASPAR``\。
+  - 增量 ``mapper``：``--Mapper.ba_local_backend CASPAR`` 和/或 ``--Mapper.ba_global_backend CASPAR``\。GPU 设备通过 ``--Mapper.ba_gpu_index`` 选择。
 
-  The solver behavior and GPU device of the standalone backend can be tuned via
-  the ``--BundleAdjustmentCaspar.*`` options, e.g. ``--BundleAdjustmentCaspar.gpu_index``
-  (default ``-1`` auto-selects the best CUDA device).
+  独立后端的求解器行为与 GPU 设备可通过 ``--BundleAdjustmentCaspar.*`` 选项调优，例如 ``--BundleAdjustmentCaspar.gpu_index``\（默认 ``-1`` 会自动选择最佳 CUDA 设备）。
 
-  .. Attention:: Caspar is experimental and currently supports only the
-     ``SIMPLE_RADIAL`` and ``PINHOLE`` camera models; observations using other
-     camera models are skipped. It does not support pose priors or refining
-     ``sensor_from_rig`` for non-reference rig sensors, and requires
-     ``refine_focal_length`` and ``refine_extra_params`` to be equal. The
-     ``global_mapper`` does not expose a Caspar backend selector.
+  .. Attention:: Caspar 为实验性功能，目前仅支持 ``SIMPLE_RADIAL`` 与
+     ``PINHOLE`` 相机模型；使用其他相机模型的观测会被跳过。它不支持位姿先验，
+     也不支持对非参考 rig 传感器优化 ``sensor_from_rig``，并要求
+     ``refine_focal_length`` 与 ``refine_extra_params`` 相等。
+     ``global_mapper`` 未提供 Caspar 后端选择器。
 
-- **Additional practical tips**
+- **其他实用建议**
 
-  - Improve initial conditions by tuning observation-filtering parameters so BA
-    receives more inliers and fewer outliers, or by supplying accurate priors
-    (e.g., intrinsics, poses).
-  - Fix or restrict refinement of parameters when possible (e.g., hold intrinsics
-    fixed if they are known) to reduce the number of optimized variables.
-  - Reduce LM iterations or relax convergence tolerances to trade a small amount of
-    accuracy for runtime: ``--Mapper.ba_global_max_num_iterations``,
-    ``--Mapper.ba_global_function_tolerance``.
-  - Reduce the frequency of expensive global BA passes with mapper options:
-    ``--Mapper.ba_global_frames_freq``, ``--Mapper.ba_global_points_freq``,
-    ``--Mapper.ba_global_frames_ratio`` and ``--Mapper.ba_global_points_ratio``.
+  - 通过调整观测过滤参数，使 BA 获得更多内点、更少外点，或提供准确先验（例如内参、位姿）来改善初始条件。
+  - 在可能时固定或限制参数优化（例如在内参已知时保持固定），以减少优化变量数量。
+  - 通过减少 LM 迭代次数或放宽收敛容差，以少量精度换取运行时间：``--Mapper.ba_global_max_num_iterations``、``--Mapper.ba_global_function_tolerance``\。
+  - 使用 mapper 选项降低昂贵全局 BA 的频率：``--Mapper.ba_global_frames_freq``、``--Mapper.ba_global_points_freq``、``--Mapper.ba_global_frames_ratio`` 与 ``--Mapper.ba_global_points_ratio``\。
 
 
-Trading off completeness and accuracy in dense reconstruction
--------------------------------------------------------------
-
-If the dense point cloud contains too many outliers and too much noise, try to
-increase the value of option ``--StereoFusion.min_num_pixels``.
-
-If the reconstructed dense surface mesh model using Poisson reconstruction
-contains no surface or there are too many outlier surfaces, you should reduce
-the value of option ``--PoissonMeshing.trim`` to decrease the surface area and
-vice versa to increase it. Also consider to try the reduce the outliers or
-increase the completeness in the fusion stage, as described above.
-
-If the reconstructed dense surface mesh model using Delaunay reconstruction
-contains too noisy or incomplete surfaces, you should increase the
-``--DelaunayMeshing.quality_regularization`` parameter to obtain a smoother
-surface. If the resolution of the mesh is too coarse, you should reduce the
-``--DelaunayMeshing.max_proj_dist`` option to a lower value.
-
-
-Improving dense reconstruction results for weakly textured surfaces
--------------------------------------------------------------------
-
-For scenes with weakly textured surfaces it can help to have a high resolution
-of the input images (``--PatchMatchStereo.max_image_size``) and a large patch window
-radius (``--PatchMatchStereo.window_radius``). You may also want to reduce the
-filtering threshold for the photometric consistency cost
-(``--PatchMatchStereo.filter_min_ncc``).
-
-
-Surface mesh reconstruction
----------------------------
-
-COLMAP supports three surface reconstruction algorithms:
-
-- **Poisson surface reconstruction** [kazhdan2013]_ typically requires an almost
-  outlier-free input point cloud and often produces bad surfaces in the presence
-  of outliers or large holes in the input data.
-
-- **Delaunay triangulation** based meshing is more robust to outliers and in
-  general more scalable to large datasets than the Poisson algorithm, but it
-  usually produces less smooth surfaces. It can be applied to both sparse and
-  dense reconstruction results.
-
-- **Advancing front surface reconstruction** [cohen-steiner2004]_ incrementally
-  grows a surface mesh from a Delaunay triangulation of the input points.
-  It supports visibility-based filtering to remove faces that violate free-space
-  constraints and block-wise parallel processing for large-scale scenes. It uses
-  a float32 CGAL kernel for memory efficiency.
-
-To increase the smoothness of the surface as a post-processing step, you could
-use Laplacian smoothing, as e.g. implemented in Meshlab.
-
-Note that Poisson and Delaunay meshing can also be combined by first running the
-Delaunay meshing to robustly filter outliers from the sparse or dense point
-cloud and then, in the second step, performing Poisson surface reconstruction to
-obtain a smooth surface.
-
-After meshing, the ``mesh_texturer`` command can be used to produce a textured
-mesh with a texture atlas [waechter2014]_. This assigns each mesh face to the
-best-view camera image based on projected area and viewing angle, and bakes the
-texture into an atlas with per-face UV coordinates. The command requires the
-undistorted workspace produced by ``image_undistorter`` as input.
-
-
-Speedup dense reconstruction
+在稠密重建中权衡完整性与精度
 ----------------------------
 
-The dense reconstruction can be speeded up in multiple ways:
+若稠密点云包含过多外点与噪声，请尝试增大选项 ``--StereoFusion.min_num_pixels`` 的值。
 
-- Put more GPUs in your system as the dense reconstruction can make use of
-  multiple GPUs during the stereo reconstruction step. Put more RAM into your
-  system and increase the ``--PatchMatchStereo.cache_size``,
-  ``--StereoFusion.cache_size`` to the largest possible value in order to
-  speed up the dense fusion step.
+若使用 Poisson 重建得到的稠密表面网格模型没有表面，或存在过多外点表面，应减小选项 ``--PoissonMeshing.trim`` 的值以减小表面积，反之则增大。也可考虑在融合阶段按上文所述减少外点或提高完整性。
 
-- Do not perform geometric dense stereo reconstruction
-  ``--PatchMatchStereo.geom_consistency false``. Make sure to also enable
-  ``--PatchMatchStereo.filter true`` in this case.
+若使用 Delaunay 重建得到的稠密表面网格模型过于嘈杂或不完整，应增大 ``--DelaunayMeshing.quality_regularization`` 参数以获得更平滑的表面。若网格分辨率过粗，应将 ``--DelaunayMeshing.max_proj_dist`` 选项减小到更低的值。
 
-- Reduce the ``--PatchMatchStereo.max_image_size``, ``--StereoFusion.max_image_size``
-  values to perform dense reconstruction on a maximum image resolution.
 
-- Reduce the number of source images per reference image to be considered, as
-  described :ref:`here <faq-dense-memory>`.
+改善弱纹理表面的稠密重建结果
+----------------------------
 
-- Increase the patch windows step ``--PatchMatchStereo.window_step`` to 2.
+对于弱纹理表面的场景，使用高分辨率输入图像（``--PatchMatchStereo.max_image_size``）与较大的 patch 窗口半径（``--PatchMatchStereo.window_radius``）会有帮助。也可降低光度一致性代价的过滤阈值（``--PatchMatchStereo.filter_min_ncc``）。
 
-- Reduce the patch window radius ``--PatchMatchStereo.window_radius``.
 
-- Reduce the number of patch match iterations ``--PatchMatchStereo.num_iterations``.
+表面网格重建
+------------
 
-- Reduce the number of sampled views ``--PatchMatchStereo.num_samples``.
+COLMAP 支持三种表面重建算法：
 
-- To speedup the dense stereo and fusion step for very large reconstructions,
-  you can use CMVS to partition your scene into multiple clusters and to prune
-  redundant images, as described :ref:`here <faq-dense-memory>`.
+- **Poisson surface reconstruction** [kazhdan2013]_ 通常需要几乎无外点的输入点云，在存在外点或输入数据有大孔洞时往往会产生较差的表面。
 
-Note that apart from upgrading your hardware, the proposed changes might degrade
-the quality of the dense reconstruction results. When canceling the stereo
-reconstruction process and restarting it later, the previous progress is not
-lost and any already processed views will be skipped.
+- 基于 **Delaunay triangulation** 的网格化对外点更稳健，且通常比 Poisson 算法更能扩展到大型数据集，但生成的表面通常不够平滑。它可应用于稀疏与稠密重建结果。
+
+- **Advancing front surface reconstruction** [cohen-steiner2004]_ 从输入点的 Delaunay 三角剖分增量生长表面网格。它支持基于可见性的过滤以移除违反自由空间约束的面，并支持面向大规模场景的分块并行处理。它使用 float32 CGAL 内核以提高内存效率。
+
+作为后处理步骤以提高表面平滑度，可使用拉普拉斯平滑，例如 Meshlab 中的实现。
+
+注意：也可以将 Poisson 与 Delaunay 网格化结合：先运行 Delaunay 网格化以稳健地从稀疏或稠密点云中过滤外点，然后在第二步执行 Poisson 表面重建以获得平滑表面。
+
+网格化之后，可使用 ``mesh_texturer`` 命令生成带纹理图集的纹理网格 [waechter2014]_。该方法根据投影面积与视角将每个网格面分配给最佳视角的相机图像，并将纹理烘焙到带有逐面 UV 坐标的图集中。该命令需要 ``image_undistorter`` 生成的去畸变工作区作为输入。
+
+
+加速稠密重建
+------------
+
+稠密重建可通过多种方式加速：
+
+- 在系统中增加更多 GPU，因为稠密重建可在立体重建步骤中使用多个 GPU。在系统中增加更多 RAM，并将 ``--PatchMatchStereo.cache_size``、``--StereoFusion.cache_size`` 增大到尽可能大的值，以加速稠密融合步骤。
+
+- 不执行几何稠密立体重建 ``--PatchMatchStereo.geom_consistency false``\。此时请确保同时启用 ``--PatchMatchStereo.filter true``\。
+
+- 减小 ``--PatchMatchStereo.max_image_size``、``--StereoFusion.max_image_size`` 的值，以在最大图像分辨率下进行稠密重建。
+
+- 减少每张参考图像考虑的源图像数量，如 :ref:`here <faq-dense-memory>` 所述。
+
+- 将 patch 窗口步长 ``--PatchMatchStereo.window_step`` 增大到 2。
+
+- 减小 patch 窗口半径 ``--PatchMatchStereo.window_radius``\。
+
+- 减少 patch match 迭代次数 ``--PatchMatchStereo.num_iterations``\。
+
+- 减少采样视图数量 ``--PatchMatchStereo.num_samples``\。
+
+- 对于非常大的重建，要加速稠密立体与融合步骤，可使用 CMVS 将场景划分为多个簇并剪枝冗余图像，如 :ref:`here <faq-dense-memory>` 所述。
+
+注意：除升级硬件外，上述改动可能会降低稠密重建结果的质量。若取消立体重建过程并稍后重启，之前的进度不会丢失，已处理的视图将被跳过。
 
 
 .. _faq-dense-memory:
 
-Reduce memory usage during dense reconstruction
------------------------------------------------
+减少稠密重建期间的内存占用
+--------------------------
 
-If you run out of GPU memory during patch match stereo, you can either reduce
-the maximum image size by setting the option ``--PatchMatchStereo.max_image_size`` or
-reduce the number of source images in the ``stereo/patch-match.cfg`` file from
-e.g. ``__auto__, 30`` to ``__auto__, 10``. Note that enabling the
-``geom_consistency`` option increases the required GPU memory.
+若在 patch match 立体期间 GPU 内存不足，可通过设置选项 ``--PatchMatchStereo.max_image_size`` 减小最大图像尺寸，或将 ``stereo/patch-match.cfg`` 文件中的源图像数量从例如 ``__auto__, 30`` 减少到 ``__auto__, 10``\。注意启用 ``geom_consistency`` 选项会增加所需的 GPU 内存。
 
-If you run out of CPU memory during stereo or fusion, you can reduce the
-``--PatchMatchStereo.cache_size`` or ``--StereoFusion.cache_size`` specified in
-gigabytes or you can reduce ``--PatchMatchStereo.max_image_size`` or
-``--StereoFusion.max_image_size``. Note that a too low value might lead to very
-slow processing and heavy load on the hard disk.
+若在立体或融合期间 CPU 内存不足，可减小以 GB 为单位指定的 ``--PatchMatchStereo.cache_size`` 或 ``--StereoFusion.cache_size``，或减小 ``--PatchMatchStereo.max_image_size`` 或 ``--StereoFusion.max_image_size``\。注意过低的值可能导致处理非常缓慢并对硬盘造成沉重负载。
 
-For large-scale reconstructions of several thousands of images, you should
-consider splitting your sparse reconstruction into more manageable clusters of
-images using e.g. CMVS [furukawa10]_. In addition, CMVS allows to prune
-redundant images observing the same scene elements. Note that, for this use
-case, COLMAP's dense reconstruction pipeline also supports the PMVS/CMVS folder
-structure when executed from the command-line. Please, refer to the workspace
-folder for example shell scripts. Note that the example shell scripts for
-PMVS/CMVS are only generated, if the output type is set to PMVS. Since CMVS
-produces highly overlapping clusters, it is recommended to increase the default
-value of 100 images per cluster to as high as possible according to your
-available system resources and speed requirements. To change the number of
-images using CMVS, you must modify the shell scripts accordingly. For example,
-``cmvs pmvs/ 500`` to limit each cluster to 500 images. If you want to use CMVS
-to prune redundant images but not to cluster the scene, you can simply set this
-number to a very large value.
+对于数千张图像的大规模重建，应考虑使用例如 CMVS [furukawa10]_ 将稀疏重建拆分为更易管理的图像簇。此外，CMVS 允许剪枝观测同一场景元素的冗余图像。注意：对于这种用例，从命令行执行时，COLMAP 的稠密重建流水线也支持 PMVS/CMVS 文件夹结构。请参考工作区文件夹中的示例 shell 脚本。注意：仅当输出类型设置为 PMVS 时，才会生成 PMVS/CMVS 的示例 shell 脚本。由于 CMVS 会产生高度重叠的簇，建议根据可用系统资源与速度要求，将每簇默认的 100 张图像尽可能提高。要使用 CMVS 更改图像数量，必须相应修改 shell 脚本。例如，``cmvs pmvs/ 500`` 可将每个簇限制为 500 张图像。若只想用 CMVS 剪枝冗余图像而不对场景分簇，可将该数字设为非常大的值。
 
 
 .. _faq-dense-manual-source:
 
-Manual specification of source images during dense reconstruction
------------------------------------------------------------------
+稠密重建期间手动指定源图像
+--------------------------
 
-You can change the number of source images in the ``stereo/patch-match.cfg``
-file from e.g. ``__auto__, 30`` to ``__auto__, 10``. This selects the images
-with the most visual overlap automatically as source images. You can also use
-all other images as source images, by specifying ``__all__``. Alternatively, you
-can manually specify images with their name, for example::
+可将 ``stereo/patch-match.cfg`` 文件中的源图像数量从例如 ``__auto__, 30`` 改为 ``__auto__, 10``\。这会自动选择视觉重叠最多的图像作为源图像。也可以通过指定 ``__all__`` 使用所有其他图像作为源图像。或者，可手动按名称指定图像，例如::
 
     image1.jpg
     image2.jpg, image3.jpg
@@ -837,69 +530,46 @@ can manually specify images with their name, for example::
     image3.jpg
     image1.jpg, image2.jpg
 
-Here, ``image2.jpg`` and ``image3.jpg`` are used as source images for
-``image1.jpg``, etc.
+这里，``image2.jpg`` 与 ``image3.jpg`` 用作 ``image1.jpg`` 的源图像，依此类推。
 
 
-Multi-GPU support in dense reconstruction
------------------------------------------
+稠密重建中的多 GPU 支持
+-----------------------
 
-You can run dense reconstruction on multiple GPUs by specifying multiple indices
-for CUDA-enabled GPUs, e.g., ``--PatchMatchStereo.gpu_index=0,1,2,3`` runs the dense
-reconstruction on 4 GPUs in parallel. You can also run multiple dense
-reconstruction threads on the same GPU by specifying the same GPU index twice,
-e.g., ``--PatchMatchStereo.gpu_index=0,0,1,1,2,3``. By default, COLMAP runs one
-dense reconstruction thread per CUDA-enabled GPU.
+可通过为支持 CUDA 的 GPU 指定多个索引，在多个 GPU 上运行稠密重建，例如 ``--PatchMatchStereo.gpu_index=0,1,2,3`` 可在 4 个 GPU 上并行运行稠密重建。也可通过重复指定同一 GPU 索引，在同一 GPU 上运行多个稠密重建线程，例如 ``--PatchMatchStereo.gpu_index=0,0,1,1,2,3``\。默认情况下，COLMAP 为每个支持 CUDA 的 GPU 运行一个稠密重建线程。
 
 
 .. _faq-dense-timeout:
 
-Fix GPU freezes and timeouts during dense reconstruction
---------------------------------------------------------
+修复稠密重建期间的 GPU 冻结与超时
+---------------------------------
 
-The stereo reconstruction pipeline runs on the GPU using CUDA and puts the GPU
-under heavy load. You might experience a display freeze or even a program crash
-during the reconstruction. As a solution to this problem, you could use a
-secondary GPU in your system, that is not connected to your display by setting
-the GPU indices explicitly (usually index 0 corresponds to the card that the
-display is attached to). Alternatively, you can increase the GPU timeouts of
-your system, as detailed in the following.
+立体重建流水线使用 CUDA 在 GPU 上运行，并使 GPU 处于高负载状态。重建期间可能会遇到显示冻结甚至程序崩溃。解决该问题的一种方法是在系统中使用未连接到显示器的第二块 GPU，并通过显式设置 GPU 索引（通常索引 0 对应连接显示器的显卡）。也可以增大系统的 GPU 超时，详见下文。
 
-By default, the Windows operating system detects response problems from the GPU,
-and recovers to a functional desktop by resetting the card and aborting the
-stereo reconstruction process. The solution is to increase the so-called
-"Timeout Detection & Recovery" (TDR) delay to a larger value. Please, refer to
-the `NVIDIA Nsight documentation <https://goo.gl/UWKVs6>`_ or to the `Microsoft
-documentation <http://www.microsoft.com/whdc/device/display/wddm_timeout.mspx>`_
-on how to increase the delay time under Windows. You can increase the delay
-using the following Windows Registry entries::
+默认情况下，Windows 操作系统会检测 GPU 的响应问题，并通过重置显卡并中止立体重建过程来恢复可用的桌面。解决方法是将所谓的 "Timeout Detection & Recovery"（TDR）延迟增大到更大的值。请参考 `NVIDIA Nsight documentation <https://goo.gl/UWKVs6>`_ 或 `Microsoft
+documentation <http://www.microsoft.com/whdc/device/display/wddm_timeout.mspx>`_ 了解如何在 Windows 下增大延迟时间。可通过以下 Windows 注册表项增大延迟::
 
     [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GraphicsDrivers]
     "TdrLevel"=dword:00000001
     "TdrDelay"=dword:00000120
 
-To set the registry entries, execute the following commands using administrator
-privileges (e.g., in ``cmd.exe`` or ``powershell.exe``)::
+要设置注册表项，请以管理员权限执行以下命令（例如在 ``cmd.exe`` 或 ``powershell.exe`` 中）::
 
     reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GraphicsDrivers /v TdrLevel /t REG_DWORD /d 00000001
     reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GraphicsDrivers /v TdrDelay /t REG_DWORD /d 00000120
 
-and restart your machine afterwards to make the changes effective.
+然后重启机器以使更改生效。
 
-The X window system under Linux/Unix has a similar feature and detects response
-problems of the GPU. The easiest solution to avoid timeout problems under the X
-window system is to shut it down and run the stereo reconstruction from the
-command-line. Under Ubuntu, you could first stop X using::
+Linux/Unix 下的 X 窗口系统有类似功能，也会检测 GPU 的响应问题。避免 X 窗口系统超时问题的最简单方法是关闭它，并从命令行运行立体重建。在 Ubuntu 下，可先使用以下命令停止 X::
 
     sudo service lightdm stop
 
-And then run the dense reconstruction code from the command-line::
+然后从命令行运行稠密重建代码::
 
     colmap patch_match_stereo ...
 
-Finally, you can restart your desktop environment with the following command::
+最后，可用以下命令重启桌面环境::
 
     sudo service lightdm start
 
-If the dense reconstruction still crashes after these changes, the reason is
-probably insufficient GPU memory, as discussed in a separate item in this list.
+若在这些更改后稠密重建仍然崩溃，原因可能是 GPU 内存不足，如本列表中另一项所述。

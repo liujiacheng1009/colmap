@@ -1,5 +1,5 @@
-Legacy Documentations
-=====================
+旧版文档
+========
 
 .. toctree::
    :maxdepth: 1

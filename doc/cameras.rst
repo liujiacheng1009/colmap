@@ -1,101 +1,69 @@
-Camera Models
-=============
+相机模型
+========
 
-COLMAP implements different camera models of varying complexity. If no intrinsic
-parameters are known a priori, it is generally best to use the simplest camera
-model that is complex enough to model the distortion effects:
+COLMAP 实现了复杂度不同的多种相机模型。事先不知道内参时，应选能描述畸变、又尽量简单的模型：
 
-- ``SIMPLE_PINHOLE``, ``PINHOLE``: Use these camera models, if your images are
-  undistorted a priori. These use one and two focal length parameters,
-  respectively. Note that even in the case of undistorted images, COLMAP could
-  try to improve the intrinsics with a more complex camera model.
-- ``SIMPLE_RADIAL``, ``RADIAL``: This should be the camera model of choice, if the
-  intrinsics are unknown and every image has a different camera calibration,
-  e.g., in the case of Internet photos. Both models are simplified versions of
-  the ``OPENCV`` model only modeling radial distortion effects with one and two
-  parameters, respectively.
-- ``OPENCV``, ``FULL_OPENCV``: Use these camera models, if you know the calibration
-  parameters a priori. You can also try to let COLMAP estimate the parameters,
-  if you share the intrinsics for multiple images. Note that the automatic
-  estimation of parameters will most likely fail, if every image has a separate
-  set of intrinsic parameters.
-- ``SIMPLE_RADIAL_FISHEYE``, ``RADIAL_FISHEYE``, ``OPENCV_FISHEYE``, ``FOV``,
-  ``THIN_PRISM_FISHEYE``, ``RAD_TAN_THIN_PRISM_FISHEYE``: Use these camera models
-  for fisheye lenses and note that all other models are not really capable of
-  modeling the distortion effects of fisheye lenses. The ``FOV`` model is used by
-  Google Project Tango (make sure to not initialize ``omega`` to zero).
-- ``SIMPLE_FISHEYE``, ``FISHEYE``: Use these camera models for fisheye
-  lenses with equidistant projection where distortion can be ignored
-  or has been pre-corrected. These models use the equidistant projection
-  (theta = atan(r)) without any distortion parameters. ``SIMPLE_FISHEYE``
-  has a single focal length (f), while ``FISHEYE`` has two (fx, fy).
-- ``SIMPLE_DIVISION``, ``DIVISION``: Use these camera models, if you know the
-  calibration parameters a priori. Similar to ``SIMPLE_RADIAL`` and ``RADIAL``
-  models, they can model simple radial distortion effects. The two models
-  have first-order local equivalence for small distortions.
-- ``EUCM``: Use this camera model for wide-angle fisheye cameras and catadioptric
-  systems. It represents radial distortion using two
-  parameters in addition to the standard pinhole parameters.
+- ``SIMPLE_PINHOLE``、``PINHOLE``：图像已经去畸变时用。分别有 1 个和 2 个焦距参数。
+  即使图像已去畸变，COLMAP 仍可能用更复杂的模型去改进内参。
+- ``SIMPLE_RADIAL``、``RADIAL``：内参未知、且每张图标定不同时优先用，例如网上照片。
+  它们是 ``OPENCV`` 的简化，只建模径向畸变，分别有 1 个和 2 个畸变参数。
+- ``OPENCV``、``FULL_OPENCV``：事先知道标定参数时用。多张图共享内参时，也可以让 COLMAP 估计这些参数。
+  若每张图各自一套内参，自动估计多半会失败。
+- ``SIMPLE_RADIAL_FISHEYE``、``RADIAL_FISHEYE``、``OPENCV_FISHEYE``、``FOV``、
+  ``THIN_PRISM_FISHEYE``、``RAD_TAN_THIN_PRISM_FISHEYE``：鱼眼镜头用这些模型。
+  其他模型描述不了鱼眼畸变。``FOV`` 用于 Google Project Tango（不要把 ``omega`` 初始化为 0）。
+- ``SIMPLE_FISHEYE``、``FISHEYE``：等距投影的鱼眼，畸变可以忽略或已经校正时用。
+  投影为 theta = atan(r)，没有畸变参数。``SIMPLE_FISHEYE`` 只有一个焦距 f，
+  ``FISHEYE`` 有 fx、fy。
+- ``SIMPLE_DIVISION``、``DIVISION``：事先知道标定参数时用。和 ``SIMPLE_RADIAL``、``RADIAL`` 类似，
+  能描述简单径向畸变。畸变较小时，这两种模型在局部一阶等价。
+- ``EUCM``：广角鱼眼和折反射系统用。在针孔参数之外，用两个参数表示径向畸变。
 
-You can inspect the estimated intrinsic parameters by double-clicking specific
-images in the model viewer or by exporting the model and opening the
-``cameras.txt`` file.
+在模型查看器里双击图像，或导出模型后打开 ``cameras.txt``，可以查看估计出的内参。
 
-Projection
-----------
+投影
+----
 
-All perspective camera models map a 3D point in the camera coordinate system to
-a 2D pixel coordinate in three steps: perspective division, distortion, and the
-intrinsic transform (focal length and principal point). COLMAP uses a
-corner-based pixel convention, in which the center of the top-left pixel is at
-``(0.5, 0.5)`` (see :doc:`database`).
+透视相机模型把相机坐标系中的三维点变成像素坐标，分三步：透视除法、畸变、内参变换（焦距和主点）。
+COLMAP 的像素以角点为原点，左上角像素的中心是 ``(0.5, 0.5)``\（见 :doc:`database`）。
 
-Taking ``SIMPLE_RADIAL`` (parameter list ``f, cx, cy, k``) as a worked example, a
-point :math:`(X, Y, Z)` in the camera frame, which looks down the positive
-:math:`Z` axis, is projected as follows:
+以 ``SIMPLE_RADIAL``\（参数 ``f, cx, cy, k``）为例。相机坐标系看向正 :math:`Z` 轴，
+点 :math:`(X, Y, Z)` 的投影如下：
 
-1. Perspective division onto the normalized image plane:
+1. 透视除法，投到归一化像平面：
 
    .. math::
 
        u = X / Z, \qquad v = Y / Z
 
-2. Radial distortion with :math:`r^2 = u^2 + v^2`:
+2. 径向畸变，:math:`r^2 = u^2 + v^2`：
 
    .. math::
 
        u' = u \, (1 + k \, r^2), \qquad v' = v \, (1 + k \, r^2)
 
-3. Focal length and principal point, giving the pixel coordinate:
+3. 乘焦距、加主点，得到像素坐标：
 
    .. math::
 
        x = f \, u' + c_x, \qquad y = f \, v' + c_y
 
-The inverse mapping (pixel to normalized camera ray) subtracts the principal
-point, divides by the focal length, and then removes the distortion iteratively.
+逆映射（像素到归一化射线）先减主点、除以焦距，再迭代去掉畸变。
 
-All other perspective models share this three-step structure and differ only in
-the number of focal length parameters (a single shared ``f`` or separate ``fx``,
-``fy``) and in the distortion function, e.g. ``RADIAL`` adds a second radial term
-``k2`` and ``OPENCV`` adds tangential terms ``p1, p2``. The fisheye models
-instead replace the perspective division with an equidistant projection. The
-exact parameter list of every model is given by its ``params_info`` string and
-defined in the camera models header:
+其他透视模型也是这三步，差别只在焦距个数（共用一个 ``f``，或分开的 ``fx``、``fy``）
+和畸变函数。例如 ``RADIAL`` 多一个径向项 ``k2``，``OPENCV`` 多切向项 ``p1, p2``\。
+鱼眼模型则把透视除法换成等距投影。每个模型的参数列表见其 ``params_info`` 字符串，
+定义在相机模型头文件：
 https://github.com/colmap/colmap/blob/main/src/colmap/sensor/models.h
 
-Configuration
--------------
+配置
+----
 
-To achieve optimal reconstruction results, you might have to try different
-camera models for your problem. Generally, when the reconstruction fails and the
-estimated focal length values / distortion coefficients are grossly wrong, it is
-a sign of using a too complex camera model. Contrary, if COLMAP uses many
-iterative local and global bundle adjustments, it is a sign of using a too
-simple camera model that is not able to fully model the distortion effects.
+要得到好的重建，可能需要换几种相机模型试。重建失败，且焦距或畸变系数明显不对，
+通常是模型过于复杂。反过来，如果 COLMAP 反复做很多次局部和全局光束法平差，
+通常是模型过于简单，畸变没有被充分描述。
 
-You can also share intrinsics between multiple
-images to obtain more reliable results
-(see :ref:`Share intrinsic camera parameters <faq-share-intrinsics>`) or you can
-fix the intrinsic parameters during the reconstruction
-(see :ref:`Fix intrinsic camera parameters <faq-fix-intrinsics>`).
+也可以让多张图像共享内参，结果会更稳
+（见 :ref:`共享相机内参 <faq-share-intrinsics>`），
+或在重建过程中固定内参
+（见 :ref:`固定相机内参 <faq-fix-intrinsics>`）。

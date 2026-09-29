@@ -1,26 +1,22 @@
 .. _rig-support:
 
-Rig Support
-===========
+Rig
+===
 
-COLMAP has native support for modeling sensor rigs during the reconstruction
-process. The sensors in a rig are assumed to have fixed relative poses between
-each other with one reference sensor defining the origin of the rig. A frame
-defines a specific instance of the rig with all or a subset of sensors exposed
-at the same time. For example, in a stereo camera rig, one camera would be
-defined as the reference sensor and have an identity ``sensor_from_rig`` pose,
-whereas the second camera would be posed relative to the reference camera. Each
-frame would then usually be composed of two images as the measurements of both
-of the cameras at the same time.
+COLMAP 在重建过程中原生支持对传感器 rig 建模。rig 中的传感器被假定彼此之间
+具有固定的相对位姿，其中一个参考传感器定义了 rig 的原点。frame 定义了
+rig 在某一时刻的具体实例，此时所有或一部分传感器同时曝光。例如，在立体相机
+rig 中，一台相机会被定义为参考传感器，并具有单位（identity）的
+``sensor_from_rig`` 位姿，而第二台相机则相对于参考相机进行位姿表示。每个
+frame 通常由两张图像组成，作为两台相机在同一时刻的测量结果。
 
-Workflow
+工作流程
 --------
 
-By default, when running the standard reconstruction pipeline, each camera is
-modeled with a separate rig and thus each frame contains only a single image. To
-model rigs, the recommended workflow is to organize images by rigs and cameras
-in a folder structure as follows (ensure that images corresponding to the same
-frame have identical filenames across all folders)::
+默认情况下，在运行标准重建流水线时，每台相机都会被建模为单独的 rig，因此
+每个 frame 只包含一张图像。要对 rig 建模，推荐的工作流程是按如下文件夹结构
+按 rig 和相机组织图像（确保对应于同一 frame 的图像在所有文件夹中具有相同的
+文件名）::
 
     rig1/
         camera1/
@@ -38,23 +34,22 @@ frame have identical filenames across all folders)::
         ...
     ...
 
-As a next step, we would first extract features using::
+下一步，我们首先使用如下命令提取特征::
 
     colmap feature_extractor \
         --image_path $DATASET_PATH/images \
         --database_path $DATASET_PATH/database.db \
         --ImageReader.single_camera_per_folder 1
 
-By default, the resulting database now contains a separate rig for each camera
-and a separate frame for each image. As such, we must adjust the relationships
-in the database with the desired rig configuration. This is done using::
+默认情况下，得到的数据库现在为每台相机包含一个单独的 rig，并为每张图像
+包含一个单独的 frame。因此，我们必须按所需的 rig 配置调整数据库中的关系。
+这通过如下命令完成::
 
     colmap rig_configurator \
         --database_path $DATASET_PATH/database.db \
         --rig_config_path $DATASET_PATH/rig_config.json
 
-where the ``rig_config.json`` could look as follows, if the relative sensor poses
-in the rig are known a priori::
+其中，如果事先已知 rig 中传感器的相对位姿，``rig_config.json`` 可以如下所示::
 
     [
       {
@@ -91,46 +86,38 @@ in the rig are known a priori::
       ...
     ]
 
-Notice that this modifies the rig and frame configuration in the database, which
-contains the full specification of rigs that we later feed as an input to
-downstream processing steps.
+请注意，这会修改数据库中的 rig 和 frame 配置，该数据库包含我们随后作为下游
+处理步骤输入的完整 rig 规格说明。
 
-With known calibrated camera parameters, each camera can optionally also have
-specified ``camera_model_name`` and ``camera_params`` fields.
+如果已知已标定的相机参数，每台相机还可以可选地指定 ``camera_model_name``
+和 ``camera_params`` 字段。
 
-For more fine-grain configuration of rigs and frames, the most convenient option
-is to manually configure the database using pycolmap by either using the
-``apply_rig_config`` function or by individually adding the desired rig and frame
-objects to the reconstruction for the most flexibility.
+对于更细粒度的 rig 和 frame 配置，最便捷的选项是使用 pycolmap 手动配置
+数据库，可以通过 ``apply_rig_config`` 函数，或者为获得最大灵活性而单独向
+重建添加所需的 rig 和 frame 对象。
 
-Next, we run standard feature matching. Note that it is important to configure
-the rigs before sequential feature matching, as images in consecutive frames will
-be automatically matched against each other.
+接下来，我们运行标准的特征匹配。请注意，在顺序特征匹配之前配置 rig
+很重要，因为连续 frame 中的图像会自动相互匹配。
 
-Finally, we can reconstruct the scene using the standard ``mapper`` command with
-the option of keeping the relative poses in the rig fixed using
-``--Mapper.ba_refine_sensor_from_rig 0``.
+最后，我们可以使用标准的 ``mapper`` 命令重建场景，并可选择通过
+``--Mapper.ba_refine_sensor_from_rig 0`` 保持 rig 中的相对位姿固定。
 
-Unknown rig sensor poses
-------------------------
+未知的 rig 传感器位姿
+---------------------
 
-If the relative poses of sensors in the rig are not known a priori and we only
-know that a specific set of sensors are rigidly mounted and exposed at the same
-time, one can attempt the following two-step reconstruction approach. Before
-starting, ensure to organize your images as detailed above and perform feature
-extraction with the ``--ImageReader.single_camera_per_folder 1`` option.
+如果事先不知道 rig 中传感器的相对位姿，而只知道某一组传感器是刚性安装并
+在同一时刻曝光，可以尝试以下两步重建方法。开始之前，请确保按上文所述组织
+图像，并使用 ``--ImageReader.single_camera_per_folder 1`` 选项执行特征提取。
 
-Next, reconstruct the scene without rig constraints by modeling each camera as
-its own rig (the default behavior of COLMAP without further configuration). Note
-that this can be a partial reconstruction from a subset of the full set of input
-images. The only requirement is that each camera must have at least one
-registered image in the same frame with a registered image of the reference
-camera. If the reconstruction was successful and the relative poses between
-registered images look roughly correct, we can proceed with the next step.
+接下来，在没有 rig 约束的情况下重建场景，将每台相机建模为各自的 rig
+（这是 COLMAP 在未进一步配置时的默认行为）。请注意，这可以是来自完整输入
+图像集子集的部分重建。唯一的要求是：每台相机必须至少有一张已注册图像，
+且该图像与参考相机的一张已注册图像处于同一 frame 中。如果重建成功，并且
+已注册图像之间的相对位姿看起来大致正确，则可以继续下一步。
 
-The ``rig_configurator`` can also work without ``cam_from_rig_*`` transformations.
-By providing an existing (partial) reconstruction of the scene, it can compute
-the average relative rig sensor poses from all registered images::
+``rig_configurator`` 也可以在没有 ``cam_from_rig_*`` 变换的情况下工作。
+通过提供场景的现有（部分）重建，它可以从所有已注册图像计算平均的相对
+rig 传感器位姿::
 
     colmap rig_configurator \
         --database_path $DATASET_PATH/database.db \
@@ -138,18 +125,18 @@ the average relative rig sensor poses from all registered images::
         --rig_config_path $DATASET_PATH/rig_config.json \
         [ --output_path $DATASET_PATH/sparse-model-with-rigs-and-frames ]
 
-The provided ``rig_config.json`` must simply omit the respective
-``cam_from_rig_rotation`` and ``cam_from_rig_translation`` fields.
+所提供的 ``rig_config.json`` 只需省略相应的
+``cam_from_rig_rotation`` 和 ``cam_from_rig_translation`` 字段。
 
-Now, we can either run rig bundle adjustment on the (optional) output
-reconstruction with configured rigs and frames::
+现在，我们可以对（可选）输出的已配置 rig 和 frame 的重建运行
+rig 光束法平差::
 
     colmap bundle_adjuster \
         --input_path $DATASET_PATH/sparse-model-with-rigs-and-frames \
         --output_path $DATASET_PATH/bundled-sparse-model-with-rigs-and-frames
 
-or alternatively start the reconstruction process from scratch with rig
-constraints, which may lead to more accurate reconstruction results::
+或者，也可以在有 rig 约束的情况下从头开始重建过程，这可能会得到更准确的
+重建结果::
 
     colmap mapper
         --image_path $DATASET_PATH/images \
@@ -157,11 +144,11 @@ constraints, which may lead to more accurate reconstruction results::
         --output_path $DATASET_PATH/sparse-model-with-rigs-and-frames
 
 
-Example
--------
+示例
+----
 
-The following example shows an end-to-end example for how to reconstruct one of
-the ETH3D rig datasets using COLMAP's rig support::
+以下示例展示了如何使用 COLMAP 的 rig 支持端到端地重建 ETH3D
+rig 数据集之一::
 
     wget https://www.eth3d.net/data/terrains_rig_undistorted.7z
     7zz x terrains_rig_undistorted.7z
@@ -171,15 +158,15 @@ the ETH3D rig datasets using COLMAP's rig support::
         --image_path terrains/images \
         --ImageReader.single_camera_per_folder 1
 
-The ETH3D dataset conveniently comes with a groundtruth COLMAP reconstruction
-that we use to configure the sensor rig poses as well as camera models using::
+ETH3D 数据集方便地附带了一个真值 COLMAP 重建，我们用它来配置传感器
+rig 位姿以及相机模型::
 
     colmap rig_configurator \
         --database_path terrains/database.db \
         --rig_config_path terrains/rig_config.json \
         --input_path terrains/rig_calibration_undistorted
 
-with the ``rig_config.json``::
+配合如下 ``rig_config.json``::
 
     [
         {
@@ -201,22 +188,21 @@ with the ``rig_config.json``::
         }
     ]
 
-Notice that we do not specify the sensor poses, because we used an existing
-reconstruction (in this case, the groundtruth but it can also be a
-reconstruction without rig constraints, as explained in the previous section) to
-automatically infer the average rig extrinsics and camera parameters.
+请注意，我们没有指定传感器位姿，因为我们使用了现有重建（在本例中是真值，
+但也可以是没有 rig 约束的重建，如前一节所述）来自动推断平均的
+rig 外参和相机参数。
 
-Next, we sequentially match the frames, since they were captured as a video::
+接下来，我们对 frame 进行顺序匹配，因为它们是作为视频采集的::
 
     colmap sequential_matcher --database_path terrains/database.db
 
-Depending on the accuracy of the provided sensor_from_rig poses, you can optionally
-enable the option `--FeatureMatching.rig_verification 1` or, if you know that the
-sensors within the same frame do not have visual overlap, you can enable the option
-`--FeatureMatching.skip_image_pairs_in_same_frame 1`.
+根据所提供的 sensor_from_rig 位姿的精度，你可以选择启用选项
+`--FeatureMatching.rig_verification 1`；或者，如果你知道同一 frame 内的
+传感器没有视觉重叠，可以启用选项
+`--FeatureMatching.skip_image_pairs_in_same_frame 1`。
 
-Finally, we reconstruct the scene using the mapper while keeping the groundtruth
-sensor rig poses and camera parameters fixed::
+最后，我们使用 mapper 重建场景，同时保持真值传感器 rig 位姿和相机参数
+固定::
 
     mkdir -p terrains/sparse
     colmap mapper \
@@ -228,22 +214,19 @@ sensor rig poses and camera parameters fixed::
         --output_path terrains/sparse
 
 
-Reconstruction from 360° spherical images
------------------------------------------
+从 360° 球面图像重建
+--------------------
 
-COLMAP can handle collections of 360° panoramas by rendering virtual pinhole
-images (similar to a cubemap) and treating them as a camera rig. Since the rig
-extrinsics and camera intrinsics are known, the reconstruction process is more
-robust. We provide an example Python script to reconstruct a 360° collection::
+COLMAP 可以通过渲染虚拟针孔图像（类似于立方体贴图）并将其作为相机
+rig 处理，来处理 360° 全景图集合。由于 rig 外参和相机内参已知，重建过程
+更加稳健。我们提供了一个示例 Python 脚本来重建 360° 集合::
 
     python python/examples/panorama_sfm.py \
         --input_image_path image_directory \
         --output_path output_directory
 
-Make sure to use the version of the script that corresponds to the version of
-COLMAP that you are using, as the script at HEAD is not guaranteed to be
-compatible.
+请确保使用与你所用 COLMAP 版本对应的脚本版本，因为 HEAD 上的脚本不保证
+兼容。
 
-The example is a command-line wrapper around ``pycolmap.panorama.reconstruct``.
-Perspective rendering requires the optional ``panorama`` dependencies, which
-can be installed with ``pip install 'pycolmap[panorama]'``.
+该示例是围绕 ``pycolmap.panorama.reconstruct`` 的命令行封装。透视渲染需要
+可选的 ``panorama`` 依赖，可通过 ``pip install 'pycolmap[panorama]'`` 安装。
